@@ -1,13 +1,23 @@
-const mysql = require('mysql2');
+// database.js
+require('dotenv').config();
+const mysql = require('mysql2/promise');
+
+const sslOption = process.env.SSL_MODE === 'Disabled'
+  ? false
+  : process.env.SSL_MODE === 'Required'
+    ? { rejectUnauthorized: true }
+    : { rejectUnauthorized: false };
 
 const pool = mysql.createPool({
-  host: 'localhost',      // Cambia si tu DB está en otro host (ej. '127.0.0.1')
-  user: 'root',           // Cambia por tu usuario de MySQL
-  password: 'univalle', // Cambia por tu contraseña de MySQL
-  database: 'electromarket', // Nombre de la base de datos
+  host: process.env.DB_HOST,
+  port: parseInt(process.env.DB_PORT || '3306', 10),
+  user: process.env.DB_USER,
+  password: process.env.DB_PASS,
+  database: process.env.DB_NAME,
+  ssl: sslOption,            // ← aquí usamos sslOption
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
 });
 
-module.exports = pool.promise(); 
+module.exports = pool;
