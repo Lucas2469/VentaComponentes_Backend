@@ -2,29 +2,41 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 5000;
-const db = require('./database'); // Asegúrate de que apunte a db.js en minúsculas
+const db = require('./database'); // Asegúrate de que apunte a db.js
+const path = require("path");
 
-// Middleware
+// ================== MIDDLEWARE ==================
 app.use(express.json());
 app.use(cors({
-  origin: 'http://localhost:3000', // Allow frontend origin
+  origin: 'http://localhost:3000', // Permite las peticiones del frontend
 }));
 
-// Routes
+// Middleware para servir imágenes
+app.use("/images", express.static(path.join(__dirname, "images")));
 
+// ================== ROUTES ==================
+// Meeting Points
 const meetingPointRoutes = require('./routes/meetingPointsRoutes');
 app.use('/api/puntosencuentro', meetingPointRoutes);
 
+// Créditos
+const creditRoutes = require('./routes/creditRoutes');
+app.use('/api/creditos', creditRoutes);
+
+// PACKS
+const packsRoutes = require('./routes/packsRoutes');
+app.use('/api/packs', packsRoutes);
+// ================== ROOT ==================
 app.get('/', (req, res) => {
   res.send('Hello from VentaComponentes Backend!');
 });
 
-// Prueba de conexión (opcional, para depuración)
+// ================== DB TEST ==================
 db.getConnection()
-  .then(() => console.log('Conexión a MySQL exitosa'))
-  .catch(err => console.error('Error al conectar a MySQL:', err));
+  .then(() => console.log('✅ Conexión a MySQL exitosa'))
+  .catch(err => console.error('❌ Error al conectar a MySQL:', err));
 
-// Start server
+// ================== START SERVER ==================
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  console.log(`🚀 Server running on port ${port}`);
 });
