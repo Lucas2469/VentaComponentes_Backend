@@ -1,13 +1,13 @@
 const mysql = require('mysql2');
 
 const pool = mysql.createPool({
-  host: 'localhost',      // Cambia si tu DB está en otro host (ej. '127.0.0.1')
-  user: 'root',           // Cambia por tu usuario de MySQL
-  password: 'univalle', // Cambia por tu contraseña de MySQL
-  database: 'electromarket', // Nombre de la base de datos
+  host: 'db26921.public.databaseasp.net',
+  user: 'db26921',
+  password: 'G%j5kR3?P7-b',
+  database: 'db26921',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
 });
 
-module.exports = pool.promise(); 
+module.exports = pool.promise();
