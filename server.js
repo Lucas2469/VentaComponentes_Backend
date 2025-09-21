@@ -14,6 +14,8 @@ app.use(cors({
 
 const meetingPointRoutes = require('./routes/meetingPointsRoutes');
 app.use('/api/puntosencuentro', meetingPointRoutes);
+const categoryRoutes = require('./routes/categoryRoutes');
+app.use('/api/categorias', categoryRoutes);
 
 const AdProductRoutes = require('./routes/AdProductRoutes');
 app.use('/api/ad-products', AdProductRoutes);

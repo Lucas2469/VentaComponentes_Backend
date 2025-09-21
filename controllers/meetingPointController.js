@@ -1,68 +1,83 @@
-const db = require('../database');
+const meetingPointModel = require('../models/meetingPointModel');
 
 // GET all meeting points
-exports.getAllMeetingPoints = async (req, res) => {
+const getAllMeetingPoints = async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM puntos_encuentro');
-    res.json(rows);
+    const meetingPoints = await meetingPointModel.getAllMeetingPoints();
+    res.json(meetingPoints);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
 // GET meeting point by ID
-exports.getMeetingPointById = async (req, res) => {
+const getMeetingPointById = async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM puntos_encuentro WHERE id = ?', [req.params.id]);
-    if (rows.length === 0) {
-      return res.status(404).json({ error: 'Meeting point not found' });
-    }
-    res.json(rows[0]);
+    const meetingPoint = await meetingPointModel.getMeetingPointById(req.params.id);
+    res.json(meetingPoint);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    if (err.message === 'Meeting point not found') {
+      res.status(404).json({ error: err.message });
+    } else {
+      res.status(500).json({ error: err.message });
+    }
   }
 };
 
 // POST create new meeting point
-exports.createMeetingPoint = async (req, res) => {
-  const { coordenadas_lat, coordenadas_lng, nombre, zona, estado, direccion, referencias } = req.body;
+const createMeetingPoint = async (req, res) => {
   try {
-    const result = await db.query(
-      'INSERT INTO puntos_encuentro (coordenadas_lat, coordenadas_lng, nombre, zona, estado, direccion, referencias) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [coordenadas_lat, coordenadas_lng, nombre, zona, estado, direccion, referencias]
-    );
-    res.status(201).json({ id: result[0].insertId, message: 'Meeting point created' });
+    const newMeetingPoint = await meetingPointModel.createMeetingPoint(req.body);
+    res.status(201).json({ 
+      message: 'Meeting point created',
+      meetingPoint: newMeetingPoint
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    if (err.message === 'Faltan campos obligatorios') {
+      res.status(400).json({ error: err.message });
+    } else {
+      console.error('Error en createMeetingPoint:', err);
+      res.status(500).json({ error: err.message });
+    }
   }
 };
 
 // PUT update meeting point by ID
-exports.updateMeetingPoint = async (req, res) => {
-  const { coordenadas_lat, coordenadas_lng, nombre, zona, estado, direccion, referencias } = req.body;
+const updateMeetingPoint = async (req, res) => {
   try {
-    const result = await db.query(
-      'UPDATE puntos_encuentro SET coordenadas_lat = ?, coordenadas_lng = ?, nombre = ?, zona = ?, estado = ?, direccion = ?, referencias = ? WHERE id = ?',
-      [coordenadas_lat, coordenadas_lng, nombre, zona, estado, direccion, referencias, req.params.id]
-    );
-    if (result[0].affectedRows === 0) {
-      return res.status(404).json({ error: 'Meeting point not found' });
-    }
-    res.json({ message: 'Meeting point updated' });
+    const result = await meetingPointModel.updateMeetingPoint(req.params.id, req.body);
+    res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    if (err.message === 'Faltan campos obligatorios') {
+      res.status(400).json({ error: err.message });
+    } else if (err.message === 'Meeting point not found') {
+      res.status(404).json({ error: err.message });
+    } else {
+      console.error('Error en updateMeetingPoint:', err);
+      res.status(500).json({ error: err.message });
+    }
   }
 };
 
-// DELETE (soft delete) meeting point by ID
-exports.deleteMeetingPoint = async (req, res) => {
+// DELETE (real delete) meeting point by ID
+const deleteMeetingPoint = async (req, res) => {
   try {
-    const result = await db.query('UPDATE puntos_encuentro SET estado = "inactivo" WHERE id = ?', [req.params.id]);
-    if (result[0].affectedRows === 0) {
-      return res.status(404).json({ error: 'Meeting point not found' });
-    }
-    res.json({ message: 'Meeting point marked as inactive' });
+    const result = await meetingPointModel.deleteMeetingPoint(req.params.id);
+    res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    if (err.message === 'Meeting point not found') {
+      res.status(404).json({ error: err.message });
+    } else {
+      console.error('Error en deleteMeetingPoint:', err);
+      res.status(500).json({ error: err.message });
+    }
   }
+};
+
+module.exports = {
+  getAllMeetingPoints,
+  getMeetingPointById,
+  createMeetingPoint,
+  updateMeetingPoint,
+  deleteMeetingPoint
 };
