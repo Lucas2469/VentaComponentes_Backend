@@ -29,8 +29,18 @@ const userRoutes = require('./routes/userRoutes');
 const meetingPointRoutes = require('./routes/meetingPointsRoutes');
 
 app.use('/api/products', productRoutes);
-app.use('/api/users', userRoutes);    
+app.use('/api/users', userRoutes);
 app.use('/api/puntosencuentro', meetingPointRoutes);
+
+// Nuevas rutas de Anett
+const AdProductRoutes = require('./routes/AdProductRoutes');
+app.use('/api/ad-products', AdProductRoutes);
+
+const scheduleRoutes = require('./routes/scheduleRoutes');
+app.use('/api/schedules', scheduleRoutes);
+
+const appointmentRoutes = require('./routes/AgendamientoRoutes');
+app.use('/api/appointments', appointmentRoutes);
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -42,6 +52,9 @@ app.get('/', (req, res) => {
             products: '/api/products',
             users: '/api/users',
             meetingPoints: '/api/puntosencuentro',
+            adProducts: '/api/ad-products',
+            schedules: '/api/schedules',
+            appointments: '/api/appointments',
             images: '/images'
         }
     });
