@@ -35,7 +35,7 @@ const validateProductQuery = (req, res, next) => {
     }
     
     // Validar estado
-    const validStates = ['activo', 'inactivo', 'agotado'];
+    const validStates = ['activo', 'inactivo', 'agotado', 'expirado'];
     if (estado && !validStates.includes(estado)) {
         errors.push('El estado debe ser: activo, inactivo o agotado');
     }

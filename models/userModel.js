@@ -22,8 +22,8 @@ class UserModel {
                 fecha_registro,
                 fecha_ultima_actividad,
                 calificacion_promedio,
-                total_ventas,
-                total_compras
+                total_intercambios_vendedor,
+                total_intercambios_comprador
             FROM usuarios 
             WHERE 1=1
         `;
@@ -50,11 +50,16 @@ class UserModel {
         // Ordenamiento
         query += ` ORDER BY fecha_registro DESC`;
         
-        // Paginación
-        if (filters.limit) {
-            const offset = (filters.page - 1) * filters.limit;
-            query += ` LIMIT ? OFFSET ?`;
-            params.push(filters.limit, offset);
+        // Paginación: validar y forzar enteros
+        if (filters.limit !== undefined && filters.limit !== null) {
+            const parsedLimit = parseInt(filters.limit, 10);
+            const parsedPage = parseInt(filters.page, 10) || 1;
+
+            const limitNum = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 20;
+            const pageNum = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+            const offsetNum = (pageNum - 1) * limitNum;
+
+            query += ` LIMIT ${limitNum} OFFSET ${offsetNum}`;
         }
         
         try {
@@ -118,8 +123,8 @@ class UserModel {
                 fecha_registro,
                 fecha_ultima_actividad,
                 calificacion_promedio,
-                total_ventas,
-                total_compras
+                total_intercambios_vendedor,
+                total_intercambios_comprador
             FROM usuarios 
             WHERE id = ?
         `;
@@ -154,8 +159,8 @@ class UserModel {
                 COUNT(CASE WHEN estado = 'suspendido' THEN 1 END) as usuarios_suspendidos,
                 COUNT(CASE WHEN estado = 'inactivo' THEN 1 END) as usuarios_inactivos,
                 AVG(calificacion_promedio) as calificacion_promedio_general,
-                SUM(total_ventas) as ventas_totales,
-                SUM(total_compras) as compras_totales,
+                SUM(total_intercambios_vendedor) as intercambios_vendedor_totales,
+                SUM(total_intercambios_comprador) as intercambios_comprador_totales,
                 SUM(creditos_disponibles) as creditos_totales_sistema
             FROM usuarios
         `;
@@ -172,26 +177,29 @@ class UserModel {
      * Obtener vendedores mejor calificados
      */
     static async getTopVendedores(limit = 10) {
+        // Validar y forzar entero para limit
+        const limitNum = Number.isFinite(parseInt(limit, 10)) && parseInt(limit, 10) > 0 ? parseInt(limit, 10) : 10;
+
         const query = `
-            SELECT 
+            SELECT
                 id,
                 nombre,
                 apellido,
                 email,
                 tipo_usuario,
                 calificacion_promedio,
-                total_ventas,
+                total_intercambios_vendedor,
                 fecha_registro
-            FROM usuarios 
-            WHERE tipo_usuario IN ('vendedor', 'admin') 
+            FROM usuarios
+            WHERE tipo_usuario IN ('vendedor', 'admin')
                 AND estado = 'activo'
-                AND total_ventas > 0
-            ORDER BY calificacion_promedio DESC, total_ventas DESC
-            LIMIT ?
+                AND total_intercambios_vendedor > 0
+            ORDER BY calificacion_promedio DESC, total_intercambios_vendedor DESC
+            LIMIT ${limitNum}
         `;
-        
+
         try {
-            const [rows] = await db.execute(query, [limit]);
+            const [rows] = await db.execute(query);
             return rows;
         } catch (error) {
             throw new Error(`Error al obtener top vendedores: ${error.message}`);

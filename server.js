@@ -1,3 +1,4 @@
+// server.js
 require('dotenv').config(); // Cargar variables de entorno PRIMERO
 
 const express = require('express');
@@ -78,8 +79,8 @@ db.getConnection()
 app.listen(port, () => {
     console.log(`🚀 Servidor ejecutándose en puerto ${port}`);
     console.log(`🌐 API disponible en: http://localhost:${port}`);
-    console.log(`📚 Productos API: http://localhost:${port}/api/products`);
-    console.log(`📚 Productos API: http://localhost:${port}/api/users`);
+    console.log(`📦 Productos API: http://localhost:${port}/api/products`);
+    console.log(`👥 Usuarios API: http://localhost:${port}/api/users`);
 });
 
 module.exports = app;
