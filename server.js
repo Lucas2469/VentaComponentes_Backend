@@ -21,7 +21,7 @@ app.use(cors({
 }));
 
 //archivos estáticos (imágenes)
-app.use('/images', express.static(path.join(__dirname, 'public/images')));
+app.use('/images', express.static(path.join(__dirname, 'images')));
 
 // Rutas
 const productRoutes = require('./routes/productRoutes');
