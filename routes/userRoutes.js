@@ -28,4 +28,14 @@ router.get('/type/:tipo', validateUserQuery, UserController.getUsersByType);
 // Obtener usuario específico por ID
 router.get('/:id', validateUserId, UserController.getUserById);
 
+// Middleware temporal para simular admin autenticado (SOLO PARA PRUEBAS)
+const mockAdminAuth = (req, res, next) => {
+    // TODO: Reemplazar con sistema de autenticación real
+    req.currentUser = { id: 1, tipo_usuario: 'admin' }; // Admin del sistema
+    next();
+};
+
+// Actualizar estado de usuario (solo admin)
+router.put('/:id/status', validateUserId, mockAdminAuth, UserController.updateUserStatus);
+
 module.exports = router;

@@ -211,12 +211,30 @@ class UserModel {
      */
     static async existsUser(userId) {
         const query = 'SELECT id FROM usuarios WHERE id = ?';
-        
+
         try {
             const [rows] = await db.execute(query, [userId]);
             return rows.length > 0;
         } catch (error) {
             throw new Error(`Error al verificar usuario: ${error.message}`);
+        }
+    }
+
+    /**
+     * Actualizar estado de usuario
+     */
+    static async updateUserStatus(userId, estado) {
+        const query = `
+            UPDATE usuarios
+            SET estado = ?
+            WHERE id = ? AND tipo_usuario != 'admin'
+        `;
+
+        try {
+            const [result] = await db.execute(query, [estado, userId]);
+            return result.affectedRows > 0;
+        } catch (error) {
+            throw new Error(`Error al actualizar estado del usuario: ${error.message}`);
         }
     }
 }

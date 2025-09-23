@@ -184,6 +184,59 @@ class UserController {
             return errorResponse(res, 'Error al obtener top vendedores', 500);
         }
     }
+
+    /**
+     * Actualizar estado de usuario (solo admin)
+     * PUT /api/users/:id/status
+     */
+    static async updateUserStatus(req, res) {
+        try {
+            const userId = req.userId;
+            const { estado } = req.body;
+
+            // TODO: Reemplazar con autenticación real cuando esté implementada
+            // Por ahora usamos el middleware mockAdminAuth que simula admin autenticado
+
+            // Verificar que el usuario autenticado sea admin
+            if (!req.currentUser || req.currentUser.tipo_usuario !== 'admin') {
+                return errorResponse(res, 'Acceso denegado. Solo administradores pueden realizar esta acción', 403);
+            }
+
+            // Validar que el estado sea válido
+            const validStates = ['activo', 'inactivo', 'suspendido'];
+            if (!estado || !validStates.includes(estado)) {
+                return errorResponse(res, 'Estado inválido. Debe ser: activo, inactivo o suspendido', 400);
+            }
+
+            // Verificar que el usuario existe
+            const user = await UserModel.getUserById(userId);
+            if (!user) {
+                return errorResponse(res, 'Usuario no encontrado', 404);
+            }
+
+            // No permitir cambiar estado de otros admins
+            if (user.tipo_usuario === 'admin') {
+                return errorResponse(res, 'No se puede modificar el estado de otros administradores', 403);
+            }
+
+            // Actualizar el estado
+            const success = await UserModel.updateUserStatus(userId, estado);
+
+            if (success) {
+                return successResponse(
+                    res,
+                    { id: userId, estado },
+                    `Usuario ${estado === 'activo' ? 'activado' : 'desactivado'} exitosamente`
+                );
+            } else {
+                return errorResponse(res, 'Error al actualizar el estado del usuario', 500);
+            }
+
+        } catch (error) {
+            console.error('Error en updateUserStatus:', error);
+            return errorResponse(res, 'Error al actualizar estado del usuario', 500);
+        }
+    }
 }
 
 module.exports = UserController;
