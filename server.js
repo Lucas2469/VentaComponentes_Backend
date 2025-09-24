@@ -2,13 +2,13 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 5000;
-const db = require('./database'); // Asegúrate de que apunte a db.js
+const db = require('./database');
 const path = require("path");
 
 // ================== MIDDLEWARE ==================
 app.use(express.json());
 app.use(cors({
-  origin: 'http://localhost:3000', // Permite las peticiones del frontend
+  origin: 'http://localhost:3000',
 }));
 
 // Middleware para servir imágenes
