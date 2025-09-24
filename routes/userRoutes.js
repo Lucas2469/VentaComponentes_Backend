@@ -16,6 +16,9 @@ router.get('/stats', UserController.getUserStats);
 // Top vendedores
 router.get('/top-vendedores', UserController.getTopVendedores);
 
+// Top compradores
+router.get('/top-compradores', UserController.getTopCompradores);
+
 // Búsqueda de usuarios
 router.get('/search', validateUserQuery, UserController.searchUsers);
 

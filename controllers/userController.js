@@ -166,22 +166,49 @@ class UserController {
         try {
             const { limit } = req.query;
             const limitNum = limit ? parseInt(limit) : 10;
-            
+
             if (limitNum < 1 || limitNum > 50) {
                 return errorResponse(res, 'El límite debe ser entre 1 y 50', 400);
             }
-            
+
             const topVendedores = await UserModel.getTopVendedores(limitNum);
-            
+
             return successResponse(
-                res, 
-                topVendedores, 
+                res,
+                topVendedores,
                 'Top vendedores obtenidos exitosamente'
             );
-            
+
         } catch (error) {
             console.error('Error en getTopVendedores:', error);
             return errorResponse(res, 'Error al obtener top vendedores', 500);
+        }
+    }
+
+    /**
+     * Obtener compradores más activos
+     * GET /api/users/top-compradores
+     */
+    static async getTopCompradores(req, res) {
+        try {
+            const { limit } = req.query;
+            const limitNum = limit ? parseInt(limit) : 10;
+
+            if (limitNum < 1 || limitNum > 50) {
+                return errorResponse(res, 'El límite debe ser entre 1 y 50', 400);
+            }
+
+            const topCompradores = await UserModel.getTopCompradores(limitNum);
+
+            return successResponse(
+                res,
+                topCompradores,
+                'Top compradores obtenidos exitosamente'
+            );
+
+        } catch (error) {
+            console.error('Error en getTopCompradores:', error);
+            return errorResponse(res, 'Error al obtener top compradores', 500);
         }
     }
 

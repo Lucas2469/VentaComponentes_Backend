@@ -191,9 +191,8 @@ class UserModel {
                 total_intercambios_vendedor,
                 fecha_registro
             FROM usuarios
-            WHERE tipo_usuario IN ('vendedor', 'admin')
+            WHERE tipo_usuario IN ('vendedor')
                 AND estado = 'activo'
-                AND total_intercambios_vendedor > 0
             ORDER BY calificacion_promedio DESC, total_intercambios_vendedor DESC
             LIMIT ${limitNum}
         `;
@@ -206,6 +205,38 @@ class UserModel {
         }
     }
     
+    /**
+     * Obtener compradores más activos
+     */
+    static async getTopCompradores(limit = 10) {
+        // Validar y forzar entero para limit
+        const limitNum = Number.isFinite(parseInt(limit, 10)) && parseInt(limit, 10) > 0 ? parseInt(limit, 10) : 10;
+
+        const query = `
+            SELECT
+                id,
+                nombre,
+                apellido,
+                email,
+                tipo_usuario,
+                calificacion_promedio,
+                total_intercambios_comprador,
+                fecha_registro
+            FROM usuarios
+            WHERE tipo_usuario IN ('comprador')
+                AND estado = 'activo'
+            ORDER BY total_intercambios_comprador DESC, calificacion_promedio DESC
+            LIMIT ${limitNum}
+        `;
+
+        try {
+            const [rows] = await db.execute(query);
+            return rows;
+        } catch (error) {
+            throw new Error(`Error al obtener top compradores: ${error.message}`);
+        }
+    }
+
     /**
      * Verificar si existe un usuario
      */
