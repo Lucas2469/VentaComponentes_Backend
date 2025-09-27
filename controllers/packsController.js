@@ -1,16 +1,14 @@
 // controllers/packsController.js
 const path = require("path");
 const fs = require("fs").promises;
-
 const Packs = require("../models/packsModel");
 
 const PUBLIC_SUBDIR = "/images/imagesPacks";
-const FS_DIR = path.join(__dirname, "..", "images", "imagesPacks");
+const FS_DIR = path.join(__dirname, "..", PUBLIC_SUBDIR.replace(/^\//, ""));
 
-const fsPathFromUrl = (url) =>
-  path.join(FS_DIR, path.basename(url || ""));
+const fsPathFromUrl = (url) => path.join(FS_DIR, path.basename(url || ""));
 
-// GET /api/packs → lista todos los paquetes activos
+// GET /api/packs
 exports.getAllPacks = async (_req, res) => {
   try {
     const rows = await Packs.getAllActive();
@@ -21,7 +19,7 @@ exports.getAllPacks = async (_req, res) => {
   }
 };
 
-// GET /api/packs/:id → obtiene un paquete por ID
+// GET /api/packs/:id
 exports.getPackById = async (req, res) => {
   try {
     const pack = await Packs.getById(req.params.id);
@@ -33,51 +31,48 @@ exports.getPackById = async (req, res) => {
   }
 };
 
-// POST /api/packs → crea un paquete
+// POST /api/packs
 exports.createPack = async (req, res) => {
   try {
-    const { nombre, cantidad_creditos, precio } = req.body;
-
-    // Validaciones básicas
+    const { nombre, cantidad_creditos, precio, descripcion } = req.body;
     const cant = Number(cantidad_creditos);
     const price = Number(precio);
+
     if (!nombre || !Number.isFinite(cant) || !Number.isFinite(price)) {
-      return res
-        .status(400)
-        .json({ error: "Nombre, créditos y precio son obligatorios" });
+      return res.status(400).json({ error: "Nombre, créditos y precio son obligatorios" });
+    }
+    // qr_imagen_url es NOT NULL en la BD
+    if (!req.file) {
+      return res.status(400).json({ error: "El código QR es obligatorio" });
     }
 
-    const qr_imagen_url = req.file ? `${PUBLIC_SUBDIR}/${req.file.filename}` : null;
+    const qr_imagen_url = `${PUBLIC_SUBDIR}/${req.file.filename}`;
 
-    const insertId = await Packs.insert(
-      { nombre, cantidad_creditos: cant, precio: price, qr_imagen_url }
-    );
-
-    res.status(201).json({
-      id: insertId,
+    const insertId = await Packs.insert({
       nombre,
       cantidad_creditos: cant,
       precio: price,
       qr_imagen_url,
+      descripcion: descripcion || null
     });
+
+    res.status(201).json({ id: insertId, nombre, cantidad_creditos: cant, precio: price, qr_imagen_url, descripcion });
   } catch (err) {
     console.error("createPack:", err);
     res.status(500).json({ error: "Error al crear el paquete" });
   }
 };
 
-// PUT /api/packs/:id → actualiza un paquete
+// PUT /api/packs/:id
 exports.updatePack = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, cantidad_creditos, precio } = req.body;
-
+    const { nombre, cantidad_creditos, precio, descripcion } = req.body;
     const cant = Number(cantidad_creditos);
     const price = Number(precio);
+
     if (!nombre || !Number.isFinite(cant) || !Number.isFinite(price)) {
-      return res
-        .status(400)
-        .json({ error: "Nombre, créditos y precio son obligatorios" });
+      return res.status(400).json({ error: "Nombre, créditos y precio son obligatorios" });
     }
 
     const existing = await Packs.getById(id);
@@ -85,36 +80,28 @@ exports.updatePack = async (req, res) => {
 
     let qr_imagen_url = existing.qr_imagen_url;
 
-    // Si llega un nuevo archivo, borra el anterior (si existía) y reemplaza
     if (req.file) {
       if (existing.qr_imagen_url) {
-        try {
-          await fs.unlink(fsPathFromUrl(existing.qr_imagen_url));
-        } catch (e) {
-          // No detenemos el flujo si no se pudo borrar
-          console.warn("No se pudo eliminar la imagen anterior:", e.message);
-        }
+        try { await fs.unlink(fsPathFromUrl(existing.qr_imagen_url)); }
+        catch (e) { console.warn("No se pudo eliminar el QR anterior:", e.message); }
       }
       qr_imagen_url = `${PUBLIC_SUBDIR}/${req.file.filename}`;
     }
 
     const ok = await Packs.update(id, {
-      nombre,
-      cantidad_creditos: cant,
-      precio: price,
-      qr_imagen_url,
+      nombre, cantidad_creditos: cant, precio: price, qr_imagen_url,
+      descripcion: (descripcion ?? existing.descripcion) || null
     });
-
     if (!ok) return res.status(404).json({ error: "Paquete no encontrado" });
 
-    res.json({ id, nombre, cantidad_creditos: cant, precio: price, qr_imagen_url });
+    res.json({ id, nombre, cantidad_creditos: cant, precio: price, qr_imagen_url, descripcion });
   } catch (err) {
     console.error("updatePack:", err);
     res.status(500).json({ error: "Error al actualizar el paquete" });
   }
 };
 
-// DELETE /api/packs/:id → borrado lógico
+// DELETE /api/packs/:id
 exports.deletePack = async (req, res) => {
   try {
     const { id } = req.params;
