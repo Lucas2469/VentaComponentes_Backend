@@ -194,6 +194,46 @@ class ProductController {
             return errorResponse(res, 'Error al verificar disponibilidad', 500);
         }
     }
+
+    /**
+     * Actualizar estado de producto
+     * PUT /api/products/:id/status
+     */
+    static async updateProductStatus(req, res) {
+        try {
+            const productId = req.productId;
+            const { estado } = req.body;
+
+            // Validar que el estado sea válido
+            const validStates = ['activo', 'inactivo', 'expirado', 'agotado'];
+            if (!estado || !validStates.includes(estado)) {
+                return errorResponse(res, 'Estado inválido. Debe ser: ' + validStates.join(', '), 400);
+            }
+
+            // Verificar que el producto existe
+            const existingProduct = await ProductModel.getProductById(productId);
+            if (!existingProduct) {
+                return errorResponse(res, 'Producto no encontrado', 404);
+            }
+
+            // Actualizar el estado
+            const success = await ProductModel.updateProductStatus(productId, estado);
+
+            if (!success) {
+                return errorResponse(res, 'Error al actualizar el estado del producto', 500);
+            }
+
+            return successResponse(res, {
+                id: productId,
+                estado: estado,
+                mensaje: `Producto ${estado === 'activo' ? 'activado' : 'desactivado'} exitosamente`
+            }, 'Estado actualizado correctamente');
+
+        } catch (error) {
+            console.error('Error en updateProductStatus:', error);
+            return errorResponse(res, 'Error al actualizar estado del producto', 500);
+        }
+    }
 }
 
 module.exports = ProductController;

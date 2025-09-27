@@ -25,12 +25,14 @@ app.use('/images', express.static(path.join(__dirname, 'images')));
 
 // Rutas
 const productRoutes = require('./routes/productRoutes');
-const userRoutes = require('./routes/userRoutes');   
+const userRoutes = require('./routes/userRoutes');
 const meetingPointRoutes = require('./routes/meetingPointsRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 app.use('/api/products', productRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/puntosencuentro', meetingPointRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Nuevas rutas de Anett
 const AdProductRoutes = require('./routes/AdProductRoutes');
@@ -52,6 +54,7 @@ app.get('/', (req, res) => {
             products: '/api/products',
             users: '/api/users',
             meetingPoints: '/api/puntosencuentro',
+            notifications: '/api/notifications',
             adProducts: '/api/ad-products',
             schedules: '/api/schedules',
             appointments: '/api/appointments',
