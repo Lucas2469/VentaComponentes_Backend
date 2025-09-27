@@ -23,9 +23,13 @@ app.use('/api/puntosencuentro', meetingPointRoutes);
 const creditRoutes = require('./routes/creditRoutes');
 app.use('/api/creditos', creditRoutes);
 
-// PACKS
+// Packs
 const packsRoutes = require('./routes/packsRoutes');
 app.use('/api/packs', packsRoutes);
+
+//Dashboard
+const statsRoutes = require('./routes/statsRoutes');
+app.use('/api/stats', statsRoutes);
 // ================== ROOT ==================
 app.get('/', (req, res) => {
   res.send('Hello from VentaComponentes Backend!');
@@ -33,8 +37,8 @@ app.get('/', (req, res) => {
 
 // ================== DB TEST ==================
 db.getConnection()
-  .then(() => console.log('✅ Conexión a MySQL exitosa'))
-  .catch(err => console.error('❌ Error al conectar a MySQL:', err));
+  .then(() => console.log(' Conexión a MySQL exitosa'))
+  .catch(err => console.error(' Error al conectar a MySQL:', err));
 
 // ================== START SERVER ==================
 app.listen(port, () => {

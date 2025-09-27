@@ -6,7 +6,7 @@ const fs = require("fs");
 const PUBLIC_SUBDIR = "/images/imagesPacks";
 const DIR = path.join(__dirname, "..", PUBLIC_SUBDIR.replace(/^\//, ""));
 
-fs.mkdirSync(DIR, { recursive: true });   // <- crea la carpeta si falta
+fs.mkdirSync(DIR, { recursive: true });   // crea la carpeta si falta
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, DIR),
