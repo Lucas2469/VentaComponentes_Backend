@@ -41,7 +41,7 @@ exports.comprarCreditos = async (req, res) => {
 
 // GET /api/creditos/transacciones
 exports.getTransacciones = async (req, res) => {
-  const { estado } = req.query; // opcional
+  const { estado } = req.query;
   try {
     let sql = `
       SELECT
