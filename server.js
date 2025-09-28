@@ -1,14 +1,15 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 5000;
-const db = require('./database'); // Asegúrate de que apunte a db.js
+const db = require('./database');
 const path = require("path");
 
 // ================== MIDDLEWARE ==================
 app.use(express.json());
 app.use(cors({
-  origin: 'http://localhost:3000', // Permite las peticiones del frontend
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
 }));
 
 // Middleware para servir imágenes
@@ -23,9 +24,13 @@ app.use('/api/puntosencuentro', meetingPointRoutes);
 const creditRoutes = require('./routes/creditRoutes');
 app.use('/api/creditos', creditRoutes);
 
-// PACKS
+// Packs
 const packsRoutes = require('./routes/packsRoutes');
 app.use('/api/packs', packsRoutes);
+
+//Dashboard
+const statsRoutes = require('./routes/statsRoutes');
+app.use('/api/stats', statsRoutes);
 // ================== ROOT ==================
 app.get('/', (req, res) => {
   res.send('Hello from VentaComponentes Backend!');
@@ -33,8 +38,8 @@ app.get('/', (req, res) => {
 
 // ================== DB TEST ==================
 db.getConnection()
-  .then(() => console.log('✅ Conexión a MySQL exitosa'))
-  .catch(err => console.error('❌ Error al conectar a MySQL:', err));
+  .then(() => console.log(' Conexión a MySQL exitosa'))
+  .catch(err => console.error(' Error al conectar a MySQL:', err));
 
 // ================== START SERVER ==================
 app.listen(port, () => {
