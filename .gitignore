@@ -1,5 +1,6 @@
 # Dependencias
 /node_modules
+/claude.md
 
 # Logs
 npm-debug.log*
