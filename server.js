@@ -30,6 +30,9 @@ const notificationsRoutes = require('./routes/notifications.routes');
 
 app.use('/api/confirmacion', confirmacionRoutes);
 app.use('/api/notifications', notificationsRoutes);
+// al resto de app.use(...)
+const calificacionesRoutes = require('./routes/calificaciones.routes');
+app.use('/api/calificaciones', calificacionesRoutes);
 
 // Ruta raíz (puede servir texto o redirigir al index.html)
 app.get('/', (req, res) => {
