@@ -10,6 +10,8 @@ async function crearAgendamiento(req, res) {
       cantidad_solicitada
     } = req.body;
 
+    console.log('Datos recibidos en controlador:', { producto_id, comprador_id, fecha_cita, hora_cita, cantidad_solicitada });
+
     if (!producto_id || !comprador_id || !fecha_cita || !hora_cita || !cantidad_solicitada) {
       return res.status(400).json({ error: 'Faltan campos obligatorios.' });
     }
@@ -22,12 +24,14 @@ async function crearAgendamiento(req, res) {
       cantidad_solicitada
     });
 
+    console.log('Resultado del modelo:', result);
+
     if (result.error) return res.status(400).json({ error: result.error });
 
     res.status(201).json({ message: 'Agendamiento creado con éxito', agendamiento: result });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error al crear el agendamiento.' });
+    console.error('Error en controlador:', err);
+    res.status(500).json({ error: 'Error al crear el agendamiento.', details: err.message });
   }
 }
 

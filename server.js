@@ -42,6 +42,9 @@ app.use('/api/schedules', scheduleRoutes);
 const appointmentRoutes = require('./routes/AgendamientoRoutes');
 app.use('/api/appointments', appointmentRoutes);
 
+const categoryRoutes = require('./routes/categoryRoutes');
+app.use('/api/categorias', categoryRoutes);
+
 // Ruta de prueba
 app.get('/', (req, res) => {
     res.json({
