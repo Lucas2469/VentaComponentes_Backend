@@ -26,11 +26,15 @@ async function crearAgendamiento(req, res) {
 
     res.status(201).json({ message: 'Agendamiento creado con éxito', agendamiento: result });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error al crear el agendamiento.' });
+
+    console.error('Error en controlador:', err);
+    res.status(500).json({ error: 'Error al crear el agendamiento.', details: err.message });
+
   }
 }
 
 module.exports = {
   crearAgendamiento
+
 };
+
