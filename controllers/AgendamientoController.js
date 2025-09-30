@@ -7,10 +7,11 @@ async function crearAgendamiento(req, res) {
       comprador_id,
       fecha_cita,
       hora_cita,
-      cantidad_solicitada
+      cantidad_solicitada,
+      precio_total
     } = req.body;
 
-    if (!producto_id || !comprador_id || !fecha_cita || !hora_cita || !cantidad_solicitada) {
+    if (!producto_id || !comprador_id || !fecha_cita || !hora_cita || !cantidad_solicitada || !precio_total) {
       return res.status(400).json({ error: 'Faltan campos obligatorios.' });
     }
 
@@ -19,7 +20,8 @@ async function crearAgendamiento(req, res) {
       comprador_id,
       fecha_cita,
       hora_cita,
-      cantidad_solicitada
+      cantidad_solicitada,
+      precio_total
     });
 
     if (result.error) return res.status(400).json({ error: result.error });

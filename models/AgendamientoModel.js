@@ -1,11 +1,11 @@
 const db = require('../database');
 
-async function crearAgendamiento({ producto_id, comprador_id, fecha_cita, hora_cita, cantidad_solicitada }) {
+async function crearAgendamiento({ producto_id, comprador_id, fecha_cita, hora_cita, cantidad_solicitada, precio_total }) {
   const conn = await db.getConnection();
   try {
     await conn.beginTransaction();
 
-    console.log('Iniciando transacción para agendamiento:', { producto_id, comprador_id, fecha_cita, hora_cita, cantidad_solicitada });
+    console.log('Iniciando transacción para agendamiento:', { producto_id, comprador_id, fecha_cita, hora_cita, cantidad_solicitada, precio_total });
 
     // 1. Validar que comprador_id y vendedor_id no sean el mismo
     const [[producto]] = await conn.query(
@@ -33,9 +33,10 @@ async function crearAgendamiento({ producto_id, comprador_id, fecha_cita, hora_c
       return { error: 'Producto o vendedor inactivo' };
     }
 
-    if (producto.stock < cantidad_solicitada) {
+    // En el modelo de créditos, no validamos stock individual - se agenda el producto completo
+    if (producto.stock <= 0) {
       await conn.rollback(); conn.release();
-      return { error: 'Stock insuficiente para la cantidad solicitada' };
+      return { error: 'Producto sin stock disponible' };
     }
 
     // 2. Obtener información del COMPRADOR (nombre y apellido)
@@ -82,19 +83,28 @@ async function crearAgendamiento({ producto_id, comprador_id, fecha_cita, hora_c
 
     console.log('Punto de encuentro:', puntoEncuentro);
 
-    // 6. Insertar agendamiento
+    // 6. Insertar agendamiento (sin cantidad_solicitada - modelo de créditos)
     const [agendaResult] = await conn.query(
       `INSERT INTO agendamientos
-        (producto_id, comprador_id, vendedor_id, punto_encuentro_id, fecha_cita, hora_cita, dia_semana, cantidad_solicitada)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        (producto_id, comprador_id, vendedor_id, punto_encuentro_id, fecha_cita, hora_cita, dia_semana)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
        [producto_id, comprador_id, producto.vendedor_id, producto.punto_encuentro_id,
-        fecha_cita, hora_cita, dia_semana, cantidad_solicitada]);
+        fecha_cita, hora_cita, dia_semana]);
 
     const agendamiento_id = agendaResult.insertId;
 
     // 7. Crear notificación para el VENDEDOR con información completa incluyendo nombre del comprador
     const nombreComprador = `${comprador.nombre} ${comprador.apellido}`;
-    const mensaje = `${nombreComprador} quiere comprar el producto "${producto.nombre}" el día ${fecha_cita} a las ${hora_cita}. Punto de encuentro: ${puntoEncuentro ? puntoEncuentro.nombre : 'No especificado'}${puntoEncuentro && puntoEncuentro.direccion ? ` (${puntoEncuentro.direccion})` : ''}. Cantidad solicitada: ${cantidad_solicitada} unidad(es).`;
+    const precioFormateado = new Intl.NumberFormat('es-BO', {
+      style: 'currency',
+      currency: 'BOB',
+      minimumFractionDigits: 2
+    }).format(precio_total);
+
+    const mensaje = `${nombreComprador} está interesado en tu producto "${producto.nombre}" y ha agendado una cita para el día ${fecha_cita} a las ${hora_cita}.
+📍 Punto de encuentro: ${puntoEncuentro ? puntoEncuentro.nombre : 'No especificado'}${puntoEncuentro && puntoEncuentro.direccion ? ` (${puntoEncuentro.direccion})` : ''}.
+📦 Cantidad solicitada: ${cantidad_solicitada} unidad(es)
+💰 Total del pedido: ${precioFormateado}`;
 
     await conn.query(
       `INSERT INTO notificaciones 
@@ -111,14 +121,13 @@ async function crearAgendamiento({ producto_id, comprador_id, fecha_cita, hora_c
 
     return {
       id: agendamiento_id,
-      producto_id, 
+      producto_id,
       comprador_id,
       vendedor_id: producto.vendedor_id,
       punto_encuentro_id: producto.punto_encuentro_id,
-      fecha_cita, 
+      fecha_cita,
       hora_cita,
-      dia_semana, 
-      cantidad_solicitada,
+      dia_semana,
       nombre_comprador: nombreComprador
     };
   } catch (err) {
