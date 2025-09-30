@@ -55,6 +55,11 @@ app.use('/api/packs', packsRoutes);
 
 const statsRoutes = require('./routes/statsRoutes');
 app.use('/api/stats', statsRoutes);
+
+const categoryRoutes = require('./routes/categoryRoutes');
+app.use('/api/categorias', categoryRoutes);
+
+
 app.get('/', (req, res) => {
     res.json({
         success: true,
