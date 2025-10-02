@@ -138,6 +138,185 @@ async function crearAgendamiento({ producto_id, comprador_id, fecha_cita, hora_c
   }
 }
 
+/**
+ * Obtener agendamientos donde el usuario es vendedor
+ */
+async function getAgendamientosByVendedor(vendedorId, estado = null) {
+  const connection = await db.getConnection();
+
+  try {
+    let query = `
+      SELECT
+        a.*,
+        p.nombre as producto_nombre,
+        p.precio as producto_precio,
+        CONCAT(u_comprador.nombre, ' ', u_comprador.apellido) as comprador_nombre,
+        u_comprador.telefono as comprador_telefono,
+        pe.nombre as punto_encuentro_nombre,
+        pe.direccion as punto_encuentro_direccion,
+        pe.referencias as punto_encuentro_referencias
+      FROM agendamientos a
+      JOIN productos p ON a.producto_id = p.id
+      JOIN usuarios u_comprador ON a.comprador_id = u_comprador.id
+      JOIN puntos_encuentro pe ON a.punto_encuentro_id = pe.id
+      WHERE a.vendedor_id = ?
+    `;
+
+    const params = [vendedorId];
+
+    if (estado) {
+      query += ' AND a.estado = ?';
+      params.push(estado);
+    }
+
+    query += ' ORDER BY a.fecha_cita DESC, a.hora_cita DESC';
+
+    const [agendamientos] = await connection.query(query, params);
+
+    return agendamientos;
+  } catch (error) {
+    console.error('Error al obtener agendamientos del vendedor:', error);
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+/**
+ * Obtener agendamientos donde el usuario es comprador
+ */
+async function getAgendamientosByComprador(compradorId, estado = null) {
+  const connection = await db.getConnection();
+
+  try {
+    let query = `
+      SELECT
+        a.*,
+        p.nombre as producto_nombre,
+        p.precio as producto_precio,
+        CONCAT(u_vendedor.nombre, ' ', u_vendedor.apellido) as vendedor_nombre,
+        u_vendedor.telefono as vendedor_telefono,
+        pe.nombre as punto_encuentro_nombre,
+        pe.direccion as punto_encuentro_direccion,
+        pe.referencias as punto_encuentro_referencias
+      FROM agendamientos a
+      JOIN productos p ON a.producto_id = p.id
+      JOIN usuarios u_vendedor ON a.vendedor_id = u_vendedor.id
+      JOIN puntos_encuentro pe ON a.punto_encuentro_id = pe.id
+      WHERE a.comprador_id = ?
+    `;
+
+    const params = [compradorId];
+
+    if (estado) {
+      query += ' AND a.estado = ?';
+      params.push(estado);
+    }
+
+    query += ' ORDER BY a.fecha_cita DESC, a.hora_cita DESC';
+
+    const [agendamientos] = await connection.query(query, params);
+
+    return agendamientos;
+  } catch (error) {
+    console.error('Error al obtener agendamientos del comprador:', error);
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+// Actualizar estado de agendamiento (para rechazar o completar)
+async function actualizarEstadoAgendamiento(agendamientoId, nuevoEstado, datosAdicionales = {}) {
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    // Obtener datos del agendamiento y comprador
+    const [agendamiento] = await connection.query(`
+      SELECT a.*, p.nombre as producto_nombre, p.vendedor_id,
+             CONCAT(u.nombre, ' ', u.apellido) as comprador_nombre
+      FROM agendamientos a
+      JOIN productos p ON a.producto_id = p.id
+      JOIN usuarios u ON a.comprador_id = u.id
+      WHERE a.id = ?
+    `, [agendamientoId]);
+
+    if (agendamiento.length === 0) {
+      await connection.rollback();
+      return { success: false, error: 'Agendamiento no encontrado' };
+    }
+
+    const agendamientoData = agendamiento[0];
+
+    // Preparar campos a actualizar
+    let campos = ['estado = ?', 'fecha_actualizacion = NOW()'];
+    let valores = [nuevoEstado];
+
+    // Agregar campos adicionales si existen
+    if (datosAdicionales.motivo_cancelacion) {
+      campos.push('motivo_cancelacion = ?');
+      valores.push(datosAdicionales.motivo_cancelacion);
+    }
+
+    if (nuevoEstado === 'completado') {
+      campos.push('fecha_completado = NOW()');
+    }
+
+    // Ejecutar la actualización
+    await connection.query(`
+      UPDATE agendamientos
+      SET ${campos.join(', ')}
+      WHERE id = ?
+    `, [...valores, agendamientoId]);
+
+    // Crear notificación al comprador
+    let mensajeNotificacion = '';
+    let tipoNotificacion = 'agendamiento';
+
+    if (nuevoEstado === 'cancelado') {
+      mensajeNotificacion = `Tu cita para el producto "${agendamientoData.producto_nombre}" ha sido rechazada por el vendedor.`;
+      if (datosAdicionales.motivo_cancelacion) {
+        mensajeNotificacion += ` Motivo: ${datosAdicionales.motivo_cancelacion}`;
+      }
+    } else if (nuevoEstado === 'completado') {
+      mensajeNotificacion = `La transacción del producto "${agendamientoData.producto_nombre}" se ha completado exitosamente. ¡No olvides calificar tu experiencia!`;
+    }
+
+    if (mensajeNotificacion) {
+      await connection.query(`
+        INSERT INTO notificaciones (usuario_id, remitente_id, titulo, mensaje, tipo_notificacion)
+        VALUES (?, ?, ?, ?, ?)
+      `, [
+        agendamientoData.comprador_id,
+        agendamientoData.vendedor_id,
+        nuevoEstado === 'cancelado' ? 'Cita rechazada' : 'Transacción completada',
+        mensajeNotificacion,
+        tipoNotificacion
+      ]);
+    }
+
+    await connection.commit();
+
+    return {
+      success: true,
+      message: `Agendamiento ${nuevoEstado} exitosamente`,
+      data: { id: agendamientoId, estado: nuevoEstado }
+    };
+
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error al actualizar estado del agendamiento:', error);
+    return { success: false, error: `Error al actualizar agendamiento: ${error.message}` };
+  } finally {
+    connection.release();
+  }
+}
+
 module.exports = {
-  crearAgendamiento
+  crearAgendamiento,
+  getAgendamientosByVendedor,
+  getAgendamientosByComprador,
+  actualizarEstadoAgendamiento
 };

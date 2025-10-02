@@ -48,6 +48,9 @@ app.use('/api/schedules', scheduleRoutes);
 const appointmentRoutes = require('./routes/AgendamientoRoutes');
 app.use('/api/appointments', appointmentRoutes);
 
+const calificacionRoutes = require('./routes/CalificacionRoutes');
+app.use('/api/calificaciones', calificacionRoutes);
+
 // David's routes
 const creditRoutes = require('./routes/creditRoutes');
 app.use('/api/creditos', creditRoutes);
