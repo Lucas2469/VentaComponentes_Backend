@@ -1,10 +1,9 @@
-const Seller = require('../Entities/AdProduct');
-
+// Función para obtener vendedor por ID
 async function getVendedorById(conn, id) {
   const [rows] = await conn.query(
     `SELECT id, nombre, apellido, creditos_disponibles, estado, tipo_usuario FROM usuarios WHERE id = ? FOR UPDATE`, [id]
   );
-  return rows[0] ? new Seller(rows[0]) : null;
+  return rows[0] || null;
 }
 
 async function getCategoriaById(conn, id) {

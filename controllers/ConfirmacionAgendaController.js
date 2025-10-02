@@ -1,6 +1,4 @@
-const { sequelize } = require('../models');
-const Agendamiento = require('../models/Agendamiento');
-const Notificacion  = require('../models/Notificacion');
+const db = require('../database');
 const { formatFechaCitaISOToES, formatHoraCitaToHM } = require('../utils/formatters');
 
 async function confirmar(req, res) {
@@ -9,46 +7,78 @@ async function confirmar(req, res) {
 
   if (!id) return res.status(400).json({ message: 'ID inválido' });
 
-  const t = await sequelize.transaction();
+  const connection = await db.getConnection();
   try {
-    // Bloqueo FOR UPDATE
-    const ag = await Agendamiento.findByPk(id, { lock: t.LOCK.UPDATE, transaction: t });
-    if (!ag) throw { status: 404, message: 'Agendamiento no existe' };
+    await connection.beginTransaction();
 
-    if (['confirmado','cancelado','completado'].includes(ag.estado)) {
+    // Obtener agendamiento con bloqueo FOR UPDATE
+    const [agendamientos] = await connection.query(
+      'SELECT * FROM agendamientos WHERE id = ? FOR UPDATE',
+      [id]
+    );
+
+    if (agendamientos.length === 0) {
+      throw { status: 404, message: 'Agendamiento no existe' };
+    }
+
+    const ag = agendamientos[0];
+
+    if (['confirmado', 'cancelado', 'completado'].includes(ag.estado)) {
       throw { status: 409, message: `Ya está en estado '${ag.estado}'` };
     }
-    if (actorUserId !== ag.vendedorId) {
+    if (actorUserId !== ag.vendedor_id) {
       throw { status: 403, message: 'Solo el vendedor puede confirmar' };
     }
 
-    // Actualizar campos
-    ag.estado = 'confirmado';
-    ag.fechaConfirmacion = sequelize.literal('NOW()');
-    ag.fechaActualizacion = sequelize.literal('NOW()');
-    await ag.save({ transaction: t });
+    // Actualizar agendamiento
+    const [updateResult] = await connection.query(
+      `UPDATE agendamientos
+       SET estado = 'confirmado',
+           fecha_confirmacion = NOW(),
+           fecha_actualizacion = NOW()
+       WHERE id = ?`,
+      [id]
+    );
 
-    // Armar mensaje
-    const fecha = formatFechaCitaISOToES(ag.fechaCita);
-    const hora  = formatHoraCitaToHM(ag.horaCita);
+    // Armar mensaje de notificación
+    const fecha = formatFechaCitaISOToES(ag.fecha_cita);
+    const hora = formatHoraCitaToHM(ag.hora_cita);
     const titulo = 'Agendamiento confirmado';
-    const mensaje = `${ag.vendedorId} ha confirmado la agenda del producto ${ag.productoId} el ${fecha} a las ${hora}.`;
+    const mensaje = `${ag.vendedor_id} ha confirmado la agenda del producto ${ag.producto_id} el ${fecha} a las ${hora}.`;
 
     // Crear notificación
-    const noti = await Notificacion.create({
-      usuarioId: ag.compradorId,
-      remitenteId: ag.vendedorId,
-      titulo,
-      mensaje,
-      tipoNotificacion: 'Venta'
-    }, { transaction: t });
+    const [notiResult] = await connection.query(
+      `INSERT INTO notificaciones
+       (usuario_id, remitente_id, titulo, mensaje, tipo_notificacion, estado, fecha_creacion)
+       VALUES (?, ?, ?, ?, 'creditos', 'no_vista', NOW())`,
+      [ag.comprador_id, ag.vendedor_id, titulo, mensaje]
+    );
 
-    await t.commit();
-    return res.json({ agendamiento: ag, notificacion: noti });
+    await connection.commit();
+
+    // Obtener el agendamiento actualizado
+    const [updatedAg] = await connection.query(
+      'SELECT * FROM agendamientos WHERE id = ?',
+      [id]
+    );
+
+    return res.json({
+      agendamiento: updatedAg[0],
+      notificacion: {
+        id: notiResult.insertId,
+        usuario_id: ag.comprador_id,
+        remitente_id: ag.vendedor_id,
+        titulo,
+        mensaje,
+        tipo_notificacion: 'creditos'
+      }
+    });
   } catch (err) {
-    await t.rollback();
+    await connection.rollback();
     const code = err.status || 500;
     return res.status(code).json({ message: err.message || 'Error interno' });
+  } finally {
+    connection.release();
   }
 }
 

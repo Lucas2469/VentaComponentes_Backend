@@ -82,13 +82,8 @@ exports.createPack = async (req, res) => {
     let qr_imagen_url = null;
 
     if (req.file) {
-      // Usar el enfoque de David para construir URL pública
-      qr_imagen_url = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-
-      // También soportar el enfoque original
-      if (!qr_imagen_url.includes('/uploads/')) {
-        qr_imagen_url = `${PUBLIC_SUBDIR}/${req.file.filename}`;
-      }
+      // Usar siempre el sistema estandarizado /images/imagesPacks/
+      qr_imagen_url = `${PUBLIC_SUBDIR}/${req.file.filename}`;
     }
 
     if (!qr_imagen_url) {
@@ -144,13 +139,8 @@ exports.updatePack = async (req, res) => {
         }
       }
 
-      // Construir nueva URL
-      qr_imagen_url = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-
-      // También soportar el enfoque original
-      if (!qr_imagen_url.includes('/uploads/')) {
-        qr_imagen_url = `${PUBLIC_SUBDIR}/${req.file.filename}`;
-      }
+      // Construir nueva URL usando sistema estandarizado
+      qr_imagen_url = `${PUBLIC_SUBDIR}/${req.file.filename}`;
     }
 
     const ok = await Packs.update(id, {

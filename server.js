@@ -61,13 +61,7 @@ app.use('/api/stats', statsRoutes);
 const categoryRoutes = require('./routes/categoryRoutes');
 app.use('/api/categorias', categoryRoutes);
 
-// Verificar si existen las rutas de David antes de incluirlas
-try {
-    const transactionsRoutes = require('./routes/transactionsRoutes');
-    app.use('/api/transactions', transactionsRoutes);
-} catch (e) {
-    console.log('transactionsRoutes no encontrado, continuando...');
-}
+// Ruta de transacciones eliminada - se usa /api/creditos/transacciones en su lugar
 
 try {
     const confirmacionRoutes = require('./routes/confirmacion.routes');

@@ -1,71 +1,80 @@
 // controllers/CalificacionesController.js
-const { Op }           = require('sequelize');
-const Calificacion     = require('../models/Calificacion');
-const Agendamiento     = require('../models/Agendamiento');
-const PuntoEncuentro   = require('../models/PuntoEncuentro');
-const Usuario          = require('../models/Usuario');
+const db = require('../database');
 
 async function getAll(req, res) {
   try {
-    // Traemos todo con los JOINs necesarios
-    const results = await Calificacion.findAll({
-      include: [
-        {
-          model: Agendamiento,
-          as: 'agenda',
-          attributes: ['fechaCita', 'horaCita'],
-          include: [
-            {
-              model: PuntoEncuentro,
-              as: 'punto',
-              attributes: ['nombre']
-            }
-          ]
-        },
-        {
-          model: Usuario,
-          as: 'calificador',
-          attributes: ['nombre', 'apellido']
-        },
-        {
-          model: Usuario,
-          as: 'calificado',
-          attributes: ['nombre', 'apellido']
-        }
-      ],
-      order: [['fechaComentario', 'DESC']]
-    });
+    // Query SQL equivalente al Sequelize con JOINs
+    const [results] = await db.query(`
+      SELECT
+        c.id,
+        c.calificacion,
+        c.comentario,
+        c.tipo_calificacion,
+        c.fecha_comentario,
+
+        -- Datos del calificador (vendedor o comprador)
+        u_calificador.nombre AS calificador_nombre,
+        u_calificador.apellido AS calificador_apellido,
+
+        -- Datos del calificado (vendedor o comprador)
+        u_calificado.nombre AS calificado_nombre,
+        u_calificado.apellido AS calificado_apellido,
+
+        -- Datos del agendamiento
+        a.fecha_cita,
+        a.hora_cita,
+
+        -- Punto de encuentro
+        pe.nombre AS punto_encuentro_nombre
+
+      FROM calificaciones c
+      JOIN agendamientos a ON c.agendamiento_id = a.id
+      JOIN usuarios u_calificador ON c.calificador_id = u_calificador.id
+      JOIN usuarios u_calificado ON c.calificado_id = u_calificado.id
+      JOIN puntos_encuentro pe ON a.punto_encuentro_id = pe.id
+
+      WHERE c.estado = 'activo'
+      ORDER BY c.fecha_comentario DESC
+    `);
 
     // Mapeo a la forma solicitada
     const mapped = results.map(item => ({
       vendedor: {
-        nombre:   item.calificador.nombre,
-        apellido: item.calificador.apellido
+        nombre: item.tipo_calificacion === 'comprador_a_vendedor'
+          ? item.calificado_nombre
+          : item.calificador_nombre,
+        apellido: item.tipo_calificacion === 'comprador_a_vendedor'
+          ? item.calificado_apellido
+          : item.calificador_apellido
       },
       comprador: {
-        nombre:   item.calificado.nombre,
-        apellido: item.calificado.apellido
+        nombre: item.tipo_calificacion === 'comprador_a_vendedor'
+          ? item.calificador_nombre
+          : item.calificado_nombre,
+        apellido: item.tipo_calificacion === 'comprador_a_vendedor'
+          ? item.calificador_apellido
+          : item.calificado_apellido
       },
-      califCompradorAVendedor: item.tipoCalificacion === 'comprador_a_vendedor'
+      califCompradorAVendedor: item.tipo_calificacion === 'comprador_a_vendedor'
         ? item.calificacion
         : null,
-      califVendedorAComprador: item.tipoCalificacion === 'vendedor_a_comprador'
+      califVendedorAComprador: item.tipo_calificacion === 'vendedor_a_comprador'
         ? item.calificacion
         : null,
-      fechaCita:       item.agenda.fechaCita,
-      horaCita:        item.agenda.horaCita,
-      puntoEncuentro:  item.agenda.punto.nombre,
-      comentarioComprador: item.tipoCalificacion === 'comprador_a_vendedor'
+      fechaCita: item.fecha_cita,
+      horaCita: item.hora_cita,
+      puntoEncuentro: item.punto_encuentro_nombre,
+      comentarioComprador: item.tipo_calificacion === 'comprador_a_vendedor'
         ? item.comentario
         : null,
-      comentarioVendedor: item.tipoCalificacion === 'vendedor_a_comprador'
+      comentarioVendedor: item.tipo_calificacion === 'vendedor_a_comprador'
         ? item.comentario
         : null
     }));
 
     return res.json(mapped);
   } catch (err) {
-    console.error(err);
+    console.error('Error al obtener calificaciones:', err);
     return res.status(500).json({ message: 'Error al obtener calificaciones' });
   }
 }

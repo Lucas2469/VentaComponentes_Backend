@@ -22,27 +22,21 @@ try {
 } catch (e) {
   console.log('uploadQrCodes no encontrado, usando configuración inline de multer');
 
-  // Asegurar que existan los directorios
-  const uploadsDir = path.join(__dirname, '../public/uploads');
+  // Asegurar que exista el directorio estandarizado
   const imagesPacksDir = path.join(__dirname, '../images/imagesPacks');
 
   try {
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
     if (!fs.existsSync(imagesPacksDir)) {
       fs.mkdirSync(imagesPacksDir, { recursive: true });
     }
   } catch (err) {
-    console.warn('No se pudieron crear directorios:', err.message);
+    console.warn('No se pudo crear directorio:', err.message);
   }
 
-  // Configuración básica de Multer con soporte para ambos directorios
+  // Configuración de Multer usando directorio estandarizado
   const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-      // Preferir el directorio uploads de David, con fallback al original
-      const uploadPath = fs.existsSync(uploadsDir) ? uploadsDir : imagesPacksDir;
-      cb(null, uploadPath);
+      cb(null, imagesPacksDir);
     },
     filename: (req, file, cb) => {
       const unique = Date.now() + '-' + file.originalname.replace(/\s+/g, '_');
