@@ -23,6 +23,8 @@ app.use(cors({
 
 // Archivos estáticos (imágenes)
 app.use('/images', express.static(path.join(__dirname, 'images')));
+// Servir frontend estático
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Rutas
 const productRoutes = require('./routes/productRoutes');
@@ -60,23 +62,56 @@ const categoryRoutes = require('./routes/categoryRoutes');
 app.use('/api/categorias', categoryRoutes);
 
 
+const packsRoutes = require('./routes/packsRoutes');
+app.use('/api/packs', packsRoutes);
+
+// Verificar si existen las rutas de David antes de incluirlas
+try {
+    const transactionsRoutes = require('./routes/transactionsRoutes');
+    app.use('/api/transactions', transactionsRoutes);
+} catch (e) {
+    console.log('transactionsRoutes no encontrado, continuando...');
+}
+
+try {
+    const confirmacionRoutes = require('./routes/confirmacion.routes');
+    app.use('/api/confirmacion', confirmacionRoutes);
+} catch (e) {
+    console.log('confirmacion.routes no encontrado, continuando...');
+}
+
+try {
+    const calificacionesRoutes = require('./routes/calificaciones.routes');
+    app.use('/api/calificaciones', calificacionesRoutes);
+} catch (e) {
+    console.log('calificaciones.routes no encontrado, continuando...');
+}
+
+// Ruta raíz - API info con fallback a archivo estático
 app.get('/', (req, res) => {
-    res.json({
-        success: true,
-        message: 'VentaComponentes Backend API funcionando correctamente',
-        version: '1.0.0',
-        endpoints: {
-            products: '/api/products',
-            users: '/api/users',
-            meetingPoints: '/api/puntosencuentro',
-            notifications: '/api/notifications',
-            adProducts: '/api/ad-products',
-            schedules: '/api/schedules',
-            appointments: '/api/appointments',
-            credits: '/api/creditos',
-            packs: '/api/packs',
-            stats: '/api/stats',
-            images: '/images'
+    // Intentar servir el archivo estático primero
+    const indexPath = path.join(__dirname, 'public', 'index.html');
+    res.sendFile(indexPath, (err) => {
+        if (err) {
+            // Si no existe el archivo, mostrar info de la API
+            res.json({
+                success: true,
+                message: 'VentaComponentes Backend API funcionando correctamente',
+                version: '1.0.0',
+                endpoints: {
+                    products: '/api/products',
+                    users: '/api/users',
+                    meetingPoints: '/api/puntosencuentro',
+                    notifications: '/api/notifications',
+                    adProducts: '/api/ad-products',
+                    schedules: '/api/schedules',
+                    appointments: '/api/appointments',
+                    credits: '/api/creditos',
+                    packs: '/api/packs',
+                    stats: '/api/stats',
+                    images: '/images'
+                }
+            });
         }
     });
 });

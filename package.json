@@ -12,8 +12,9 @@
     "dotenv": "^17.2.2",
     "express": "^4.18.2",
     "multer": "^2.0.2",
-    "mysql2": "^3.14.4",
-    "zod": "^4.1.11"
+    "mysql2": "^3.15.1",
+    "zod": "^4.1.11", 
+    "sequelize": "^6.37.7"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
