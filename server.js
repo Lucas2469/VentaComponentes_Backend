@@ -61,10 +61,6 @@ app.use('/api/stats', statsRoutes);
 const categoryRoutes = require('./routes/categoryRoutes');
 app.use('/api/categorias', categoryRoutes);
 
-
-const packsRoutes = require('./routes/packsRoutes');
-app.use('/api/packs', packsRoutes);
-
 // Verificar si existen las rutas de David antes de incluirlas
 try {
     const transactionsRoutes = require('./routes/transactionsRoutes');
