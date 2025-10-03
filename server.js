@@ -29,6 +29,15 @@ app.use('/api/calificaciones', calificacionesRoutes);
 const usuariosRoutes = require('./routes/usuariosRoutes');
 app.use('/api/usuarios', usuariosRoutes);
 
+const AdProductRoutes = require('./routes/AdProductRoutes');
+app.use('/api/ad-products', AdProductRoutes);
+
+const scheduleRoutes = require('./routes/scheduleRoutes');
+app.use('/api/schedules', scheduleRoutes);
+
+const appointmentRoutes = require('./routes/AgendamientoRoutes');
+app.use('/api/appointments', appointmentRoutes);
+
 // Comentamos estas rutas por ahora ya que los archivos no existen en routes
 // const confirmacionRoutes = require('./routes/confirmacion.routes');
 // app.use('/api/confirmacion', confirmacionRoutes);
@@ -46,10 +55,16 @@ app.get('/', (req, res) => {
   res.send('Hello from VentaComponentes Backend!');
 });
 
+
 // Prueba de conexión (opcional, para depuración)
-db.getConnection()
-  .then(() => console.log('Conexión a MySQL exitosa'))
-  .catch(err => console.error('Error al conectar a MySQL:', err));
+db.getConnection((err, connection) => {
+  if (err) {
+    console.error('Error al conectar a MySQL:', err);
+  } else {
+    console.log('Conexión a MySQL exitosa');
+    connection.release(); 
+  }
+});
 
 // Start server
 app.listen(port, () => {
