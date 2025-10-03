@@ -37,11 +37,9 @@ const createCategory = async (req, res) => {
       category: newCategory
     });
   } catch (err) {
-
     if (err.message === 'Faltan campos obligatorios' || 
         err.message.includes('no puede exceder') || 
         err.message.includes('símbolos especiales')) {
-
       res.status(400).json({ error: err.message });
     } else {
       console.error('Error en createCategory:', err);
@@ -59,7 +57,6 @@ const updateCategory = async (req, res) => {
     if (err.message === 'Faltan campos obligatorios' || 
         err.message.includes('no puede exceder') || 
         err.message.includes('símbolos especiales')) {
-
       res.status(400).json({ error: err.message });
     } else if (err.message === 'Category not found') {
       res.status(404).json({ error: err.message });
