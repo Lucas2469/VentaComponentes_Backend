@@ -1,9 +1,14 @@
 const db = require('../database');
 
-// GET all categories
+// GET all categories with product counts
 const getAllCategories = async () => {
   try {
-    const [rows] = await db.query('SELECT * FROM categorias');
+    const [rows] = await db.query(
+      `SELECT c.*, (
+         SELECT COUNT(*) FROM productos p WHERE p.categoria_id = c.id
+       ) AS product_count
+       FROM categorias c`
+    );
     return rows;
   } catch (err) {
     throw new Error(err.message);
@@ -32,6 +37,21 @@ const createCategory = async (categoryData) => {
     throw new Error('Faltan campos obligatorios');
   }
 
+  // Validaciones de longitud y caracteres especiales
+  if (nombre.length > 20) {
+    throw new Error('El nombre no puede exceder 20 caracteres');
+  }
+
+  if (descripcion && descripcion.length > 70) {
+    throw new Error('La descripción no puede exceder 70 caracteres');
+  }
+
+  // Validar que el nombre no contenga símbolos especiales
+  const specialCharsRegex = /[!@#$%^&*()_+=\[\]{};':"\\|,.<>\/?~`]/;
+  if (specialCharsRegex.test(nombre)) {
+    throw new Error('El nombre no puede contener símbolos especiales');
+  }
+
   try {
     const [result] = await db.query(
       'INSERT INTO categorias (nombre, descripcion, estado) VALUES (?, ?, ?)',
@@ -57,6 +77,21 @@ const updateCategory = async (id, categoryData) => {
   // Validación básica
   if (!nombre) {
     throw new Error('Faltan campos obligatorios');
+  }
+
+  // Validaciones de longitud y caracteres especiales
+  if (nombre.length > 20) {
+    throw new Error('El nombre no puede exceder 20 caracteres');
+  }
+
+  if (descripcion && descripcion.length > 70) {
+    throw new Error('La descripción no puede exceder 70 caracteres');
+  }
+
+  // Validar que el nombre no contenga símbolos especiales
+  const specialCharsRegex = /[!@#$%^&*()_+=\[\]{};':"\\|,.<>\/?~`]/;
+  if (specialCharsRegex.test(nombre)) {
+    throw new Error('El nombre no puede contener símbolos especiales');
   }
 
   try {

@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# VentaComponentes_Backend
-=======
 # VentaComponentes_Backend
 
 Backend para Venta de Componentes usando Node.js, Express y arquitectura MVC.
@@ -20,4 +17,3 @@ Backend para Venta de Componentes usando Node.js, Express y arquitectura MVC.
 ## Endpoints
 
 - GET /api/products: Obtener todos los productos
->>>>>>> e8bf209 (Proyecto base Backend + conexion BDD)
