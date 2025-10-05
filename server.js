@@ -8,6 +8,7 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 5000;
 const db = require('./database');
+const RatingNotificationService = require('./utils/ratingNotificationService');
 
 // Middleware global
 app.use(express.json({ limit: '10mb' }));
@@ -50,6 +51,9 @@ app.use('/api/appointments', appointmentRoutes);
 
 const calificacionRoutes = require('./routes/CalificacionRoutes');
 app.use('/api/calificaciones', calificacionRoutes);
+
+const ratingRoutes = require('./routes/ratingRoutes');
+app.use('/api/ratings', ratingRoutes);
 
 // David's routes
 const creditRoutes = require('./routes/creditRoutes');
@@ -145,6 +149,10 @@ app.listen(port, () => {
     console.log(`👥 Usuarios API: http://localhost:${port}/api/users`);
     console.log(`💰 Créditos API: http://localhost:${port}/api/creditos`);
     console.log(`📊 Stats API: http://localhost:${port}/api/stats`);
+    console.log(`⭐ Ratings API: http://localhost:${port}/api/ratings`);
+
+    // Iniciar el servicio de notificaciones de calificación
+    RatingNotificationService.startService();
 });
 
 module.exports = app;

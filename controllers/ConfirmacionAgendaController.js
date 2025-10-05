@@ -11,9 +11,15 @@ async function confirmar(req, res) {
   try {
     await connection.beginTransaction();
 
-    // Obtener agendamiento con bloqueo FOR UPDATE
+    // Obtener agendamiento con datos del vendedor y producto
     const [agendamientos] = await connection.query(
-      'SELECT * FROM agendamientos WHERE id = ? FOR UPDATE',
+      `SELECT a.*,
+              CONCAT(v.nombre, ' ', v.apellido) as vendedor_nombre,
+              p.nombre as producto_nombre
+       FROM agendamientos a
+       JOIN usuarios v ON a.vendedor_id = v.id
+       JOIN productos p ON a.producto_id = p.id
+       WHERE a.id = ? FOR UPDATE`,
       [id]
     );
 
@@ -44,13 +50,13 @@ async function confirmar(req, res) {
     const fecha = formatFechaCitaISOToES(ag.fecha_cita);
     const hora = formatHoraCitaToHM(ag.hora_cita);
     const titulo = 'Agendamiento confirmado';
-    const mensaje = `${ag.vendedor_id} ha confirmado la agenda del producto ${ag.producto_id} el ${fecha} a las ${hora}.`;
+    const mensaje = `${ag.vendedor_nombre} ha confirmado la agenda del producto "${ag.producto_nombre}" el ${fecha} a las ${hora}.`;
 
     // Crear notificación
     const [notiResult] = await connection.query(
       `INSERT INTO notificaciones
        (usuario_id, remitente_id, titulo, mensaje, tipo_notificacion, estado, fecha_creacion)
-       VALUES (?, ?, ?, ?, 'creditos', 'no_vista', NOW())`,
+       VALUES (?, ?, ?, ?, 'agendamiento', 'no_vista', NOW())`,
       [ag.comprador_id, ag.vendedor_id, titulo, mensaje]
     );
 

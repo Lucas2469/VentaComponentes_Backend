@@ -39,14 +39,16 @@ async function createProduct(req, res) {
       await conn.beginTransaction();
       const seller = await sellerModel.getVendedorById(conn, data.vendedor_id);
       if (!seller) throw new Error('Vendedor no encontrado.');
-      if (!seller.estaActivo()) throw new Error('El vendedor no está activo.');
-      if (!seller.tieneCreditosParaPublicar(creditosAUsar)) throw new Error(`Créditos insuficientes. Se requieren ${creditosAUsar}.`);
-      seller.descontarCreditos(creditosAUsar);
+      if (seller.estado !== 'activo') throw new Error('El vendedor no está activo.');
+      if (seller.creditos_disponibles < creditosAUsar) throw new Error(`Créditos insuficientes. Se requieren ${creditosAUsar}, tienes ${seller.creditos_disponibles}.`);
+
+      // Calcular nuevos créditos después del descuento
+      const nuevosCreditos = seller.creditos_disponibles - creditosAUsar;
       const categoria = await sellerModel.getCategoriaById(conn, data.categoria_id);
       if (!categoria || categoria.estado !== 'activo') throw new Error('Categoría inválida o inactiva.');
       const punto = await sellerModel.getPuntoEncuentroById(conn, data.punto_encuentro_id);
       if (!punto) throw new Error('Punto de encuentro inválido.');
-      await sellerModel.descontarCreditos(conn, seller.id, seller.creditos_disponibles);
+      await sellerModel.descontarCreditos(conn, seller.id, nuevosCreditos);
       const productoId = await sellerModel.insertarProducto(conn, data, creditosAUsar);
       for (let i = 0; i < files.length; i++) {
         const file = files[i];

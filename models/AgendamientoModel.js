@@ -228,7 +228,7 @@ async function getAgendamientosByComprador(compradorId, estado = null) {
 
 // Actualizar estado de agendamiento (para rechazar o completar)
 async function actualizarEstadoAgendamiento(agendamientoId, nuevoEstado, datosAdicionales = {}) {
-  const connection = await pool.getConnection();
+  const connection = await db.getConnection();
 
   try {
     await connection.beginTransaction();
@@ -286,8 +286,8 @@ async function actualizarEstadoAgendamiento(agendamientoId, nuevoEstado, datosAd
 
     if (mensajeNotificacion) {
       await connection.query(`
-        INSERT INTO notificaciones (usuario_id, remitente_id, titulo, mensaje, tipo_notificacion)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO notificaciones (usuario_id, remitente_id, titulo, mensaje, tipo_notificacion, estado, fecha_creacion)
+        VALUES (?, ?, ?, ?, ?, 'no_vista', NOW())
       `, [
         agendamientoData.comprador_id,
         agendamientoData.vendedor_id,

@@ -24,12 +24,31 @@ exports.comprarCreditos = async (req, res) => {
 
     const comprobantePath = "/images/imagesPayments/" + req.file.filename;
 
+    // Obtener información del usuario para la notificación
+    const [[usuario]] = await db.query(
+      "SELECT nombre, apellido FROM usuarios WHERE id = ?",
+      [usuario_id]
+    );
+
+    const nombreUsuario = usuario ? `${usuario.nombre} ${usuario.apellido}` : `Usuario #${usuario_id}`;
+    const nombrePack = pack ? `${cant} créditos por Bs ${monto.toFixed(2)}` : `${cant} créditos`;
+
     await db.query(
       `INSERT INTO transacciones_creditos
        (usuario_id, pack_creditos_id, cantidad_creditos, monto_pagado,
         comprobante_pago_url, estado, fecha_compra)
        VALUES (?, ?, ?, ?, ?, 'pendiente', NOW())`,
       [usuario_id, pack_creditos_id, cant, monto, comprobantePath]
+    );
+
+    // Crear notificación para el administrador
+    const mensaje = `${nombreUsuario} ha enviado una nueva solicitud de compra de créditos: ${nombrePack}. Revisa el comprobante de pago y aprueba o rechaza la solicitud.`;
+
+    await db.query(
+      `INSERT INTO notificaciones
+        (usuario_id, remitente_id, titulo, mensaje, tipo_notificacion, estado, prioridad)
+       VALUES (1, ?, 'Nueva solicitud de créditos', ?, 'creditos', 'no_vista', 'alta')`,
+      [usuario_id, mensaje]
     );
 
     res.status(201).json({ message: "Solicitud de compra registrada. En revisión." });
