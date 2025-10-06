@@ -1,4 +1,3 @@
-
 // server.js
 require('dotenv').config(); // Cargar variables de entorno PRIMERO
 
@@ -10,16 +9,11 @@ const port = process.env.PORT || 5000;
 const db = require('./database');
 const RatingNotificationService = require('./utils/ratingNotificationService');
 
-// Middleware global
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Configuración CORS
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+  origin: 'http://localhost:3000', // Allow frontend origin
 }));
 
 // Archivos estáticos (imágenes)
@@ -39,7 +33,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/puntosencuentro', meetingPointRoutes);
 app.use('/api/notifications', notificationRoutes);
 
-// Your routes (Anett)
+// Ad Products Routes
 const AdProductRoutes = require('./routes/AdProductRoutes');
 app.use('/api/ad-products', AdProductRoutes);
 
@@ -50,12 +44,12 @@ const appointmentRoutes = require('./routes/AgendamientoRoutes');
 app.use('/api/appointments', appointmentRoutes);
 
 const calificacionRoutes = require('./routes/CalificacionRoutes');
-app.use('/api/calificaciones', calificacionRoutes);
+app.use('/api/calificaciones-old', calificacionRoutes);
 
 const ratingRoutes = require('./routes/ratingRoutes');
 app.use('/api/ratings', ratingRoutes);
 
-// David's routes
+// Credit routes
 const creditRoutes = require('./routes/creditRoutes');
 app.use('/api/creditos', creditRoutes);
 
@@ -68,8 +62,7 @@ app.use('/api/stats', statsRoutes);
 const categoryRoutes = require('./routes/categoryRoutes');
 app.use('/api/categorias', categoryRoutes);
 
-// Ruta de transacciones eliminada - se usa /api/creditos/transacciones en su lugar
-
+// Confirmación routes
 try {
     const confirmacionRoutes = require('./routes/confirmacion.routes');
     app.use('/api/confirmacion', confirmacionRoutes);
@@ -77,6 +70,7 @@ try {
     console.log('confirmacion.routes no encontrado, continuando...');
 }
 
+// Calificaciones routes (nueva versión mejorada)
 try {
     const calificacionesRoutes = require('./routes/calificaciones.routes');
     app.use('/api/calificaciones', calificacionesRoutes);
@@ -103,6 +97,7 @@ app.get('/', (req, res) => {
                     adProducts: '/api/ad-products',
                     schedules: '/api/schedules',
                     appointments: '/api/appointments',
+                    calificaciones: '/api/calificaciones',
                     credits: '/api/creditos',
                     packs: '/api/packs',
                     stats: '/api/stats',
@@ -113,35 +108,18 @@ app.get('/', (req, res) => {
     });
 });
 
-// Middleware de manejo de errores global
-app.use((err, req, res, next) => {
-    console.error('Error no manejado:', err);
-    res.status(500).json({
-        success: false,
-        error: 'Error interno del servidor'
-    });
+
+// Prueba de conexión (opcional, para depuración)
+db.getConnection((err, connection) => {
+  if (err) {
+    console.error('Error al conectar a MySQL:', err);
+  } else {
+    console.log('Conexión a MySQL exitosa');
+    connection.release();
+  }
 });
 
-// Middleware para rutas no encontradas
-app.use('*', (req, res) => {
-    res.status(404).json({
-        success: false,
-        error: 'Endpoint no encontrado'
-    });
-});
-
-// Prueba de conexión a la base de datos
-db.getConnection()
-    .then(() => {
-        console.log('✅ Conexión a MySQL exitosa');
-        console.log('📊 Base de datos:', process.env.DB_NAME);
-    })
-    .catch(err => {
-        console.error('❌ Error al conectar a MySQL:', err.message);
-        process.exit(1);
-    });
-
-// Iniciar servidor
+// Start server
 app.listen(port, () => {
     console.log(`🚀 Servidor ejecutándose en puerto ${port}`);
     console.log(`🌐 API disponible en: http://localhost:${port}`);
@@ -150,6 +128,7 @@ app.listen(port, () => {
     console.log(`💰 Créditos API: http://localhost:${port}/api/creditos`);
     console.log(`📊 Stats API: http://localhost:${port}/api/stats`);
     console.log(`⭐ Ratings API: http://localhost:${port}/api/ratings`);
+    console.log(`⭐ Calificaciones API: http://localhost:${port}/api/calificaciones`);
 
     // Iniciar el servicio de notificaciones de calificación
     RatingNotificationService.startService();
