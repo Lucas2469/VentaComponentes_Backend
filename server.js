@@ -78,6 +78,76 @@ try {
     console.log('calificaciones.routes no encontrado, continuando...');
 }
 
+// Historial de créditos endpoint
+app.get('/api/historial-creditos/:usuarioId', async (req, res) => {
+    try {
+        const { usuarioId } = req.params;
+
+        if (!usuarioId || isNaN(usuarioId)) {
+            return res.status(400).json({ error: 'ID de usuario inválido' });
+        }
+
+        const [results] = await db.query(`
+            SELECT
+                id,
+                tipo_movimiento,
+                cantidad,
+                concepto,
+                saldo_anterior,
+                saldo_nuevo,
+                fecha_movimiento
+            FROM historial_creditos
+            WHERE usuario_id = ?
+            ORDER BY fecha_movimiento DESC
+            LIMIT 100
+        `, [usuarioId]);
+
+        res.status(200).json({
+            success: true,
+            data: results
+        });
+    } catch (error) {
+        console.error('Error al obtener historial de créditos:', error);
+        res.status(500).json({ error: 'Error al obtener historial de créditos', details: error.message });
+    }
+});
+
+// Productos por vendedor endpoint
+app.get('/api/productos/vendedor/:vendedorId', async (req, res) => {
+    try {
+        const { vendedorId } = req.params;
+
+        if (!vendedorId || isNaN(vendedorId)) {
+            return res.status(400).json({ error: 'ID de vendedor inválido' });
+        }
+
+        const [results] = await db.query(`
+            SELECT
+                p.id,
+                p.nombre,
+                p.descripcion,
+                p.precio,
+                p.stock,
+                p.estado,
+                p.fecha_publicacion,
+                p.fecha_expiracion,
+                c.nombre as categoria_nombre
+            FROM productos p
+            JOIN categorias c ON p.categoria_id = c.id
+            WHERE p.vendedor_id = ?
+            ORDER BY p.fecha_publicacion DESC
+        `, [vendedorId]);
+
+        res.status(200).json({
+            success: true,
+            data: results
+        });
+    } catch (error) {
+        console.error('Error al obtener productos del vendedor:', error);
+        res.status(500).json({ error: 'Error al obtener productos del vendedor', details: error.message });
+    }
+});
+
 // Ruta raíz - API info con fallback a archivo estático
 app.get('/', (req, res) => {
     // Intentar servir el archivo estático primero

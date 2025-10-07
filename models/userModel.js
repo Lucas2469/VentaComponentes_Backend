@@ -268,6 +268,86 @@ class UserModel {
             throw new Error(`Error al actualizar estado del usuario: ${error.message}`);
         }
     }
+
+    /**
+     * Actualizar datos de perfil de usuario
+     */
+    static async updateUser(userId, updateData) {
+        const fields = [];
+        const values = [];
+
+        if (updateData.nombre !== undefined) {
+            fields.push('nombre = ?');
+            values.push(updateData.nombre);
+        }
+        if (updateData.apellido !== undefined) {
+            fields.push('apellido = ?');
+            values.push(updateData.apellido);
+        }
+        if (updateData.email !== undefined) {
+            fields.push('email = ?');
+            values.push(updateData.email);
+        }
+        if (updateData.telefono !== undefined) {
+            fields.push('telefono = ?');
+            values.push(updateData.telefono);
+        }
+
+        if (fields.length === 0) {
+            return false;
+        }
+
+        values.push(userId);
+
+        const query = `
+            UPDATE usuarios
+            SET ${fields.join(', ')}
+            WHERE id = ?
+        `;
+
+        try {
+            const [result] = await db.execute(query, values);
+            return result.affectedRows > 0;
+        } catch (error) {
+            throw new Error(`Error al actualizar usuario: ${error.message}`);
+        }
+    }
+
+    /**
+     * Verificar contraseña
+     */
+    static async verifyPassword(userId, password) {
+        const query = `
+            SELECT id
+            FROM usuarios
+            WHERE id = ? AND password_hash = SHA2(?, 256)
+        `;
+
+        try {
+            const [rows] = await db.execute(query, [userId, password]);
+            return rows.length > 0;
+        } catch (error) {
+            throw new Error(`Error al verificar contraseña: ${error.message}`);
+        }
+    }
+
+    /**
+     * Actualizar contraseña
+     */
+    static async updatePassword(userId, newPassword) {
+        const query = `
+            UPDATE usuarios
+            SET password_hash = SHA2(?, 256)
+            WHERE id = ?
+        `;
+
+        try {
+            const [result] = await db.execute(query, [newPassword, userId]);
+            return result.affectedRows > 0;
+        } catch (error) {
+            throw new Error(`Error al actualizar contraseña: ${error.message}`);
+        }
+    }
 }
 
 module.exports = UserModel;

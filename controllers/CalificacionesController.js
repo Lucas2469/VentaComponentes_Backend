@@ -122,4 +122,46 @@ async function getAll(req, res) {
   }
 }
 
-module.exports = { getAll };
+/**
+ * Obtener todas las calificaciones recibidas por un usuario específico
+ */
+async function getByUsuario(req, res) {
+  try {
+    const { usuarioId } = req.params;
+
+    if (!usuarioId || isNaN(usuarioId)) {
+      return res.status(400).json({ error: 'ID de usuario inválido' });
+    }
+
+    const [results] = await db.query(`
+      SELECT
+        c.id,
+        c.calificacion,
+        c.comentario,
+        c.tipo_calificacion,
+        c.fecha_comentario AS fecha_creacion,
+        c.agendamiento_id,
+
+        -- Datos del calificador (quien dio la calificación)
+        u_calificador.id AS calificador_id,
+        u_calificador.nombre AS calificador_nombre,
+        u_calificador.apellido AS calificador_apellido
+
+      FROM calificaciones c
+      JOIN usuarios u_calificador ON c.calificador_id = u_calificador.id
+
+      WHERE c.calificado_id = ? AND c.estado = 'activo'
+      ORDER BY c.fecha_comentario DESC
+    `, [usuarioId]);
+
+    res.status(200).json({
+      success: true,
+      data: results
+    });
+  } catch (err) {
+    console.error('Error al obtener calificaciones del usuario:', err);
+    res.status(500).json({ error: 'Error al obtener calificaciones del usuario', details: err.message });
+  }
+}
+
+module.exports = { getAll, getByUsuario };

@@ -31,6 +31,12 @@ router.get('/type/:tipo', validateUserQuery, UserController.getUsersByType);
 // Obtener usuario específico por ID
 router.get('/:id', validateUserId, UserController.getUserById);
 
+// Actualizar perfil de usuario
+router.put('/:id', validateUserId, UserController.updateProfile);
+
+// Cambiar contraseña
+router.put('/:id/change-password', validateUserId, UserController.changePassword);
+
 // Middleware temporal para simular admin autenticado (SOLO PARA PRUEBAS)
 const mockAdminAuth = (req, res, next) => {
     // TODO: Reemplazar con sistema de autenticación real

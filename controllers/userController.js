@@ -213,6 +213,86 @@ class UserController {
     }
 
     /**
+     * Actualizar perfil de usuario
+     * PUT /api/users/:id
+     */
+    static async updateProfile(req, res) {
+        try {
+            const userId = req.userId;
+            const { nombre, apellido, email, telefono } = req.body;
+
+            // Validar que al menos un campo esté presente
+            if (!nombre && !apellido && !email && !telefono) {
+                return errorResponse(res, 'Debe proporcionar al menos un campo para actualizar', 400);
+            }
+
+            // Verificar que el usuario existe
+            const user = await UserModel.getUserById(userId);
+            if (!user) {
+                return errorResponse(res, 'Usuario no encontrado', 404);
+            }
+
+            // Actualizar solo los campos proporcionados
+            const updateData = {};
+            if (nombre !== undefined) updateData.nombre = nombre;
+            if (apellido !== undefined) updateData.apellido = apellido;
+            if (email !== undefined) updateData.email = email;
+            if (telefono !== undefined) updateData.telefono = telefono;
+
+            const success = await UserModel.updateUser(userId, updateData);
+
+            if (success) {
+                const updatedUser = await UserModel.getUserById(userId);
+                return successResponse(res, updatedUser, 'Perfil actualizado exitosamente');
+            } else {
+                return errorResponse(res, 'Error al actualizar perfil', 500);
+            }
+
+        } catch (error) {
+            console.error('Error en updateProfile:', error);
+            return errorResponse(res, 'Error al actualizar perfil', 500);
+        }
+    }
+
+    /**
+     * Cambiar contraseña
+     * PUT /api/users/:id/change-password
+     */
+    static async changePassword(req, res) {
+        try {
+            const userId = req.userId;
+            const { currentPassword, newPassword } = req.body;
+
+            if (!currentPassword || !newPassword) {
+                return errorResponse(res, 'Debe proporcionar la contraseña actual y la nueva', 400);
+            }
+
+            if (newPassword.length < 6) {
+                return errorResponse(res, 'La nueva contraseña debe tener al menos 6 caracteres', 400);
+            }
+
+            // Verificar contraseña actual
+            const isValid = await UserModel.verifyPassword(userId, currentPassword);
+            if (!isValid) {
+                return errorResponse(res, 'La contraseña actual es incorrecta', 401);
+            }
+
+            // Actualizar contraseña
+            const success = await UserModel.updatePassword(userId, newPassword);
+
+            if (success) {
+                return successResponse(res, null, 'Contraseña actualizada exitosamente');
+            } else {
+                return errorResponse(res, 'Error al actualizar contraseña', 500);
+            }
+
+        } catch (error) {
+            console.error('Error en changePassword:', error);
+            return errorResponse(res, 'Error al cambiar contraseña', 500);
+        }
+    }
+
+    /**
      * Actualizar estado de usuario (solo admin)
      * PUT /api/users/:id/status
      */
