@@ -67,25 +67,40 @@ const generateAccessToken = (user) => {
 };
 
 /**
- * Generar token JWT de refresh
+ * Generar token JWT de refresh con tokenId
  * @param {object} user - Objeto usuario
- * @returns {string} - Token JWT de refresh
+ * @param {string} tokenId - UUID opcional (si no se provee, se genera uno nuevo)
+ * @returns {object} - { token, tokenId, expiresAt }
  */
-const generateRefreshToken = (user) => {
+const generateRefreshToken = (user, tokenId = null) => {
     try {
+        const generatedTokenId = tokenId || crypto.randomUUID();
+        
         const payload = {
             userId: user.id,
             type: 'refresh',
-            tokenId: crypto.randomUUID() // ID único para el token
+            tokenId: generatedTokenId
         };
 
+        const expiresIn = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
         const options = {
-            expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+            expiresIn,
             issuer: 'electromarket-api',
             audience: 'electromarket-client'
         };
 
-        return jwt.sign(payload, process.env.JWT_REFRESH_SECRET, options);
+        const token = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, options);
+        
+        // Calcular fecha de expiración
+        const expiresAt = new Date();
+        const days = parseInt(expiresIn.replace('d', '')) || 7;
+        expiresAt.setDate(expiresAt.getDate() + days);
+
+        return {
+            token,
+            tokenId: generatedTokenId,
+            expiresAt
+        };
     } catch (error) {
         console.error('Error generating refresh token:', error);
         throw new Error('Error al generar token de refresh');

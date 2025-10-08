@@ -14,11 +14,7 @@ const authLimiter = rateLimit({
     },
     standardHeaders: true,
     legacyHeaders: false,
-    skipSuccessfulRequests: true, // No contar requests exitosos
-    keyGenerator: (req) => {
-        // Usar IP + User-Agent para mayor precisión
-        return `${req.ip}-${req.get('User-Agent')}`;
-    }
+    skipSuccessfulRequests: true // No contar requests exitosos
 });
 
 /**

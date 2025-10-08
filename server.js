@@ -8,6 +8,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 const db = require('./database');
 const RatingNotificationService = require('./utils/ratingNotificationService');
+const TokenCleanupService = require('./services/tokenCleanupService');
 
 // Importar middleware de seguridad
 const { 
@@ -262,6 +263,10 @@ app.listen(port, () => {
 
     // Iniciar el servicio de notificaciones de calificación
     RatingNotificationService.startService();
+
+    // Iniciar el servicio de limpieza de tokens expirados
+    // Ejecuta cada 24 horas, limpia tokens con más de 30 días de antigüedad
+    TokenCleanupService.start(24, 30);
 });
 
 module.exports = app;

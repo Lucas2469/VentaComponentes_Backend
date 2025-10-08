@@ -1,4 +1,5 @@
 const UserModel = require('../models/userModel');
+const RefreshTokenModel = require('../models/refreshTokenModel');
 const { 
     generateAccessToken, 
     generateRefreshToken, 
@@ -43,7 +44,17 @@ class AuthController {
 
             // Generar tokens
             const accessToken = generateAccessToken(user);
-            const refreshToken = generateRefreshToken(user);
+            const refreshTokenData = generateRefreshToken(user);
+
+            // Almacenar refresh token en base de datos
+            await RefreshTokenModel.storeRefreshToken({
+                usuarioId: user.id,
+                tokenId: refreshTokenData.tokenId,
+                refreshToken: refreshTokenData.token,
+                expiresAt: refreshTokenData.expiresAt,
+                ipAddress: req.ip,
+                userAgent: req.get('User-Agent')
+            });
 
             // Actualizar última actividad
             await UserModel.updateUser(user.id, { 
@@ -68,7 +79,7 @@ class AuthController {
                 },
                 tokens: {
                     accessToken,
-                    refreshToken,
+                    refreshToken: refreshTokenData.token,
                     expiresIn: process.env.JWT_EXPIRES_IN || '24h'
                 }
             }, 'Login exitoso');
@@ -123,7 +134,17 @@ class AuthController {
 
             // Generar tokens
             const accessToken = generateAccessToken(newUser);
-            const refreshToken = generateRefreshToken(newUser);
+            const refreshTokenData = generateRefreshToken(newUser);
+
+            // Almacenar refresh token en base de datos
+            await RefreshTokenModel.storeRefreshToken({
+                usuarioId: newUser.id,
+                tokenId: refreshTokenData.tokenId,
+                refreshToken: refreshTokenData.token,
+                expiresAt: refreshTokenData.expiresAt,
+                ipAddress: req.ip,
+                userAgent: req.get('User-Agent')
+            });
 
             return successResponse(res, {
                 user: {
@@ -139,7 +160,7 @@ class AuthController {
                 },
                 tokens: {
                     accessToken,
-                    refreshToken,
+                    refreshToken: refreshTokenData.token,
                     expiresIn: process.env.JWT_EXPIRES_IN || '24h'
                 }
             }, 'Usuario registrado exitosamente', 201);
@@ -176,11 +197,18 @@ class AuthController {
                 return errorResponse(res, 'Refresh token requerido', 400);
             }
 
-            // Verificar refresh token
+            // Verificar refresh token JWT
             const decoded = verifyToken(refreshToken, process.env.JWT_REFRESH_SECRET);
             
             if (decoded.type !== 'refresh') {
                 return errorResponse(res, 'Token inválido', 401);
+            }
+
+            // Verificar refresh token en base de datos
+            const tokenData = await RefreshTokenModel.verifyRefreshToken(decoded.tokenId, refreshToken);
+            
+            if (!tokenData) {
+                return errorResponse(res, 'Refresh token inválido, expirado o revocado', 401);
             }
 
             // Obtener usuario
@@ -190,14 +218,27 @@ class AuthController {
                 return errorResponse(res, 'Usuario no encontrado o inactivo', 401);
             }
 
+            // Revocar el refresh token anterior (rotación de tokens)
+            await RefreshTokenModel.rotateRefreshToken(decoded.tokenId, 'token_rotation');
+
             // Generar nuevos tokens
             const newAccessToken = generateAccessToken(user);
-            const newRefreshToken = generateRefreshToken(user);
+            const newRefreshTokenData = generateRefreshToken(user);
+
+            // Almacenar nuevo refresh token en base de datos
+            await RefreshTokenModel.storeRefreshToken({
+                usuarioId: user.id,
+                tokenId: newRefreshTokenData.tokenId,
+                refreshToken: newRefreshTokenData.token,
+                expiresAt: newRefreshTokenData.expiresAt,
+                ipAddress: req.ip,
+                userAgent: req.get('User-Agent')
+            });
 
             return successResponse(res, {
                 tokens: {
                     accessToken: newAccessToken,
-                    refreshToken: newRefreshToken,
+                    refreshToken: newRefreshTokenData.token,
                     expiresIn: process.env.JWT_EXPIRES_IN || '24h'
                 }
             }, 'Tokens renovados exitosamente');
@@ -223,8 +264,25 @@ class AuthController {
      */
     static async logout(req, res) {
         try {
-            // En una implementación más avanzada, podrías mantener una blacklist de tokens
-            // Por ahora, simplemente confirmamos el logout
+            const { refreshToken } = req.body;
+
+            // Si se provee refresh token, invalidarlo específicamente
+            if (refreshToken) {
+                try {
+                    const decoded = verifyToken(refreshToken, process.env.JWT_REFRESH_SECRET);
+                    
+                    if (decoded.type === 'refresh' && decoded.tokenId) {
+                        await RefreshTokenModel.revokeRefreshToken(decoded.tokenId, 'logout');
+                    }
+                } catch (error) {
+                    // Si el token está mal formado o expirado, continuar de todas formas
+                    console.log('Token ya inválido o mal formado:', error.message);
+                }
+            }
+
+            // Alternativamente, invalidar todos los tokens del usuario (logout de todas las sesiones)
+            // await RefreshTokenModel.revokeAllUserTokens(req.user.id, 'logout_all');
+
             return successResponse(res, null, 'Logout exitoso');
 
         } catch (error) {
