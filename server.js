@@ -4,11 +4,14 @@ require('dotenv').config(); // Cargar variables de entorno PRIMERO
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const http = require('http');
 const app = express();
+const httpServer = http.createServer(app);
 const port = process.env.PORT || 5000;
 const db = require('./database');
 const RatingNotificationService = require('./utils/ratingNotificationService');
 const TokenCleanupService = require('./services/tokenCleanupService');
+const WebSocketService = require('./services/websocketService');
 
 // Importar middleware de seguridad
 const { 
@@ -248,8 +251,11 @@ app.use((err, req, res, next) => {
     });
 });
 
+// Inicializar WebSocket Service
+WebSocketService.initialize(httpServer);
+
 // Start server
-app.listen(port, () => {
+httpServer.listen(port, () => {
     console.log(`🚀 Servidor ejecutándose en puerto ${port}`);
     console.log(`🌐 API disponible en: http://localhost:${port}`);
     console.log(`🔐 Autenticación API: http://localhost:${port}/api/auth`);
@@ -259,6 +265,8 @@ app.listen(port, () => {
     console.log(`📊 Stats API: http://localhost:${port}/api/stats`);
     console.log(`⭐ Ratings API: http://localhost:${port}/api/ratings`);
     console.log(`⭐ Calificaciones API: http://localhost:${port}/api/calificaciones`);
+    console.log(`🔔 Notificaciones API: http://localhost:${port}/api/notifications`);
+    console.log(`🔌 WebSocket: ws://localhost:${port}`);
     console.log(`🔒 Modo: ${process.env.NODE_ENV || 'development'}`);
 
     // Iniciar el servicio de notificaciones de calificación
@@ -269,4 +277,4 @@ app.listen(port, () => {
     TokenCleanupService.start(24, 30);
 });
 
-module.exports = app;
+module.exports = { app, httpServer, WebSocketService };
