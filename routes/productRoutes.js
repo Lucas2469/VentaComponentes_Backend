@@ -42,4 +42,10 @@ router.put('/:id/status',
     ProductController.updateProductStatus
 );
 
+// Eliminar producto (eliminación lógica)
+router.delete('/:id',
+    validateProductId,
+    ProductController.deleteProduct
+);
+
 module.exports = router;

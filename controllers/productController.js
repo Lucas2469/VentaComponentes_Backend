@@ -234,6 +234,48 @@ class ProductController {
             return errorResponse(res, 'Error al actualizar estado del producto', 500);
         }
     }
+
+    /**
+     * Eliminar producto (eliminación lógica)
+     * DELETE /api/products/:id
+     */
+    static async deleteProduct(req, res) {
+        try {
+            const productId = req.productId;
+
+            // Verificar que el producto existe
+            const product = await ProductModel.getProductById(productId);
+            if (!product) {
+                return errorResponse(res, 'Producto no encontrado', 404);
+            }
+
+            // Verificar si tiene agendamientos activos
+            const hasActiveAppointments = await ProductModel.hasActiveAppointments(productId);
+            if (hasActiveAppointments) {
+                return errorResponse(
+                    res,
+                    'No se puede eliminar el producto porque tiene agendamientos activos. Espera a que se completen o cancelen las citas pendientes.',
+                    400
+                );
+            }
+
+            // Eliminar producto (cambiar estado a inactivo)
+            const success = await ProductModel.deleteProduct(productId);
+
+            if (!success) {
+                return errorResponse(res, 'Error al eliminar el producto', 500);
+            }
+
+            return successResponse(res, {
+                id: productId,
+                mensaje: 'Producto eliminado exitosamente'
+            }, 'Producto eliminado correctamente');
+
+        } catch (error) {
+            console.error('Error en deleteProduct:', error);
+            return errorResponse(res, 'Error al eliminar producto', 500);
+        }
+    }
 }
 
 module.exports = ProductController;

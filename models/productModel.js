@@ -326,6 +326,43 @@ class ProductModel {
             throw new Error(`Error al verificar producto: ${error.message}`);
         }
     }
+
+    /**
+     * Verificar si el producto tiene agendamientos activos
+     */
+    static async hasActiveAppointments(productId) {
+        const query = `
+            SELECT COUNT(*) as total
+            FROM agendamientos
+            WHERE producto_id = ?
+            AND estado IN ('agendado', 'confirmado')
+        `;
+
+        try {
+            const [rows] = await db.execute(query, [productId]);
+            return rows[0].total > 0;
+        } catch (error) {
+            throw new Error(`Error al verificar agendamientos: ${error.message}`);
+        }
+    }
+
+    /**
+     * Eliminar producto (eliminación lógica - cambiar estado a inactivo)
+     */
+    static async deleteProduct(productId) {
+        const query = `
+            UPDATE productos
+            SET estado = 'inactivo', fecha_actualizacion = NOW()
+            WHERE id = ?
+        `;
+
+        try {
+            const [result] = await db.execute(query, [productId]);
+            return result.affectedRows > 0;
+        } catch (error) {
+            throw new Error(`Error al eliminar producto: ${error.message}`);
+        }
+    }
 }
 
 module.exports = ProductModel;
