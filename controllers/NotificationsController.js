@@ -1,4 +1,4 @@
-const { Notificacion } = require('../models');
+const Notificacion = require('../models/Notificacion');
 
 async function crear(req, res) {
   const { usuarioId, remitenteId, titulo, mensaje, tipoNotificacion } = req.body;

@@ -56,7 +56,7 @@ const validateProductQuery = (req, res, next) => {
         category: category ? parseInt(category) : null,
         minPrice: minPrice ? parseFloat(minPrice) : null,
         maxPrice: maxPrice ? parseFloat(maxPrice) : null,
-        estado: estado || 'activo',
+        estado: estado || null, // No forzar estado por defecto
         search: search ? search.trim() : null
     };
     

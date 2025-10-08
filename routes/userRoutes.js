@@ -5,27 +5,32 @@ const {
     validateUserQuery, 
     validateUserId 
 } = require('../middleware/validationMiddleware');
+const { 
+    authenticateToken, 
+    requireAdmin, 
+    requireOwnershipOrAdmin 
+} = require('../middleware/auth');
 
 /**
  * Rutas para usuarios
  */
 
-// Estadísticas (debe ir antes de las rutas con parámetros)
+// Rutas públicas (sin autenticación)
 router.get('/stats', UserController.getUserStats);
-
-// Top vendedores
 router.get('/top-vendedores', UserController.getTopVendedores);
+router.get('/top-compradores', UserController.getTopCompradores);
 
-// Búsqueda de usuarios
-router.get('/search', validateUserQuery, UserController.searchUsers);
+// Rutas que requieren autenticación de admin
+router.get('/search', authenticateToken, requireAdmin, validateUserQuery, UserController.searchUsers);
+router.get('/', authenticateToken, requireAdmin, validateUserQuery, UserController.getAllUsers);
+router.get('/type/:tipo', authenticateToken, requireAdmin, validateUserQuery, UserController.getUsersByType);
 
-// Obtener todos los usuarios con filtros y paginación
-router.get('/', validateUserQuery, UserController.getAllUsers);
+// Rutas de perfil (usuario autenticado puede ver su propio perfil)
+router.get('/:id', authenticateToken, requireOwnershipOrAdmin('id'), validateUserId, UserController.getUserById);
+router.put('/:id', authenticateToken, requireOwnershipOrAdmin('id'), validateUserId, UserController.updateProfile);
+router.put('/:id/change-password', authenticateToken, requireOwnershipOrAdmin('id'), validateUserId, UserController.changePassword);
 
-// Obtener usuarios por tipo
-router.get('/type/:tipo', validateUserQuery, UserController.getUsersByType);
-
-// Obtener usuario específico por ID
-router.get('/:id', validateUserId, UserController.getUserById);
+// Rutas administrativas
+router.put('/:id/status', authenticateToken, requireAdmin, validateUserId, UserController.updateUserStatus);
 
 module.exports = router;

@@ -296,11 +296,29 @@ class ProductModel {
     }
     
     /**
+     * Actualizar estado de producto
+     */
+    static async updateProductStatus(productId, estado) {
+        const query = `
+            UPDATE productos
+            SET estado = ?, fecha_actualizacion = NOW()
+            WHERE id = ?
+        `;
+
+        try {
+            const [result] = await db.execute(query, [estado, productId]);
+            return result.affectedRows > 0;
+        } catch (error) {
+            throw new Error(`Error al actualizar estado del producto: ${error.message}`);
+        }
+    }
+
+    /**
      * Verificar si existe un producto
      */
     static async existsProduct(productId) {
         const query = 'SELECT id FROM productos WHERE id = ?';
-        
+
         try {
             const [rows] = await db.execute(query, [productId]);
             return rows.length > 0;

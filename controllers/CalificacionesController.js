@@ -1,198 +1,167 @@
 // controllers/CalificacionesController.js
-const { Op }           = require('sequelize');
-const { Calificacion, Agendamiento, PuntoEncuentro, Usuario } = require('../models');
+const db = require('../database');
 
 async function getAll(req, res) {
   try {
-    // Query con JOIN para obtener calificaciones con punto de encuentro
-    const calificaciones = await Calificacion.findAll({
-      include: [
-        {
-          model: Agendamiento,
-          as: 'agenda',
-          include: [
-            {
-              model: PuntoEncuentro,
-              as: 'punto',
-              attributes: ['id', 'nombre', 'direccion', 'referencias']
-            },
-            {
-              model: Usuario,
-              as: 'comprador',
-              attributes: ['id', 'nombre', 'apellido']
-            },
-            {
-              model: Usuario,
-              as: 'vendedor',
-              attributes: ['id', 'nombre', 'apellido']
-            }
-          ]
+    // Query SQL con JOINs para obtener todas las calificaciones
+    const [results] = await db.query(`
+      SELECT
+        c.id,
+        c.calificacion,
+        c.comentario,
+        c.tipo_calificacion,
+        c.fecha_comentario,
+        c.agendamiento_id,
+
+        -- Datos del calificador
+        u_calificador.id AS calificador_id,
+        u_calificador.nombre AS calificador_nombre,
+        u_calificador.apellido AS calificador_apellido,
+
+        -- Datos del calificado
+        u_calificado.id AS calificado_id,
+        u_calificado.nombre AS calificado_nombre,
+        u_calificado.apellido AS calificado_apellido,
+
+        -- Datos del agendamiento
+        a.fecha_cita,
+        a.hora_cita,
+        a.vendedor_id,
+        a.comprador_id,
+
+        -- Punto de encuentro
+        pe.nombre AS punto_encuentro_nombre,
+        pe.direccion AS punto_encuentro_direccion,
+        pe.referencias AS punto_encuentro_referencias
+
+      FROM calificaciones c
+      JOIN agendamientos a ON c.agendamiento_id = a.id
+      JOIN usuarios u_calificador ON c.calificador_id = u_calificador.id
+      JOIN usuarios u_calificado ON c.calificado_id = u_calificado.id
+      JOIN puntos_encuentro pe ON a.punto_encuentro_id = pe.id
+
+      WHERE c.estado = 'activo'
+      ORDER BY c.fecha_comentario DESC
+    `);
+
+    // Obtener datos completos de vendedor y comprador para cada agendamiento
+    const [vendedoresCompradoresData] = await db.query(`
+      SELECT DISTINCT
+        a.id AS agendamiento_id,
+        v.id AS vendedor_id,
+        v.nombre AS vendedor_nombre,
+        v.apellido AS vendedor_apellido,
+        c.id AS comprador_id,
+        c.nombre AS comprador_nombre,
+        c.apellido AS comprador_apellido
+      FROM agendamientos a
+      JOIN usuarios v ON a.vendedor_id = v.id
+      JOIN usuarios c ON a.comprador_id = c.id
+      WHERE a.id IN (${results.map(r => r.agendamiento_id).join(',') || '0'})
+    `);
+
+    const vendedoresCompradoresMap = {};
+    vendedoresCompradoresData.forEach(row => {
+      vendedoresCompradoresMap[row.agendamiento_id] = {
+        vendedor: {
+          id: row.vendedor_id,
+          nombre: row.vendedor_nombre,
+          apellido: row.vendedor_apellido
+        },
+        comprador: {
+          id: row.comprador_id,
+          nombre: row.comprador_nombre,
+          apellido: row.comprador_apellido
         }
-      ],
-      where: {
-        estado: 'activo'
-      },
-      order: [['fechaComentario', 'DESC']]
+      };
     });
 
-      // Agrupar calificaciones por agendamientoId
-      const agrupadas = {};
-      
-      calificaciones.forEach(calif => {
-        const agendamientoId = calif.agendamientoId;
-        
-        if (!agrupadas[agendamientoId]) {
-          agrupadas[agendamientoId] = {
-            agendamientoId: agendamientoId,
-            vendedor: calif.agenda?.vendedor ? {
-              id: calif.agenda.vendedor.id,
-              nombre: calif.agenda.vendedor.nombre,
-              apellido: calif.agenda.vendedor.apellido
-            } : { id: null, nombre: 'N/A', apellido: 'N/A' },
-            comprador: calif.agenda?.comprador ? {
-              id: calif.agenda.comprador.id,
-              nombre: calif.agenda.comprador.nombre,
-              apellido: calif.agenda.comprador.apellido
-            } : { id: null, nombre: 'N/A', apellido: 'N/A' },
-            califCompradorAVendedor: null,
-            califVendedorAComprador: null,
-            comentarioComprador: null,
-            comentarioVendedor: null,
-            puntoEncuentro: calif.agenda?.punto?.nombre || 'N/A',
-            direccionPunto: calif.agenda?.punto?.direccion || 'N/A',
-            referenciasPunto: calif.agenda?.punto?.referencias || 'N/A',
-            fechaCita: calif.agenda?.fechaCita || 'N/A',
-            horaCita: calif.agenda?.horaCita || 'N/A'
-          };
-        }
-        
-        // Asignar calificaciones según el tipo
-        if (calif.tipoCalificacion === 'comprador_a_vendedor') {
-          agrupadas[agendamientoId].califCompradorAVendedor = calif.calificacion;
-          agrupadas[agendamientoId].comentarioComprador = calif.comentario;
-        } else if (calif.tipoCalificacion === 'vendedor_a_comprador') {
-          agrupadas[agendamientoId].califVendedorAComprador = calif.calificacion;
-          agrupadas[agendamientoId].comentarioVendedor = calif.comentario;
-        }
-      });
-      
-      const resultado = Object.values(agrupadas);
+    // Agrupar calificaciones por agendamiento_id (bidireccional)
+    const agrupadas = {};
+
+    results.forEach(item => {
+      const agendamientoId = item.agendamiento_id;
+      const usuarios = vendedoresCompradoresMap[agendamientoId] || {
+        vendedor: { id: null, nombre: 'N/A', apellido: 'N/A' },
+        comprador: { id: null, nombre: 'N/A', apellido: 'N/A' }
+      };
+
+      if (!agrupadas[agendamientoId]) {
+        agrupadas[agendamientoId] = {
+          agendamientoId: agendamientoId,
+          vendedor: usuarios.vendedor,
+          comprador: usuarios.comprador,
+          califCompradorAVendedor: null,
+          califVendedorAComprador: null,
+          comentarioComprador: null,
+          comentarioVendedor: null,
+          fechaCita: item.fecha_cita,
+          horaCita: item.hora_cita,
+          puntoEncuentro: item.punto_encuentro_nombre || 'N/A',
+          direccionPunto: item.punto_encuentro_direccion || 'N/A',
+          referenciasPunto: item.punto_encuentro_referencias || 'N/A'
+        };
+      }
+
+      // Asignar calificaciones según tipo
+      if (item.tipo_calificacion === 'comprador_a_vendedor') {
+        agrupadas[agendamientoId].califCompradorAVendedor = item.calificacion;
+        agrupadas[agendamientoId].comentarioComprador = item.comentario;
+      } else if (item.tipo_calificacion === 'vendedor_a_comprador') {
+        agrupadas[agendamientoId].califVendedorAComprador = item.calificacion;
+        agrupadas[agendamientoId].comentarioVendedor = item.comentario;
+      }
+    });
+
+    const resultado = Object.values(agrupadas);
 
     return res.json(resultado);
   } catch (err) {
     console.error('Error al obtener calificaciones:', err);
-    
-    // Fallback a datos mock si hay error
-    const mockCalifications = [
-      {
-        agendamientoId: 2,
-        vendedor: {
-          id: 4,
-          nombre: "Vania",
-          apellido: "Fernandez Carrasco"
-        },
-        comprador: {
-          id: 2,
-          nombre: "Alejandra",
-          apellido: "Mercado"
-        },
-        califCompradorAVendedor: 5,
-        califVendedorAComprador: 5,
-        comentarioComprador: "Fue amable y puntual",
-        comentarioVendedor: "llego puntual y cancelo al contado",
-        puntoEncuentro: "Plaza 14 de Septiembress",
-        direccionPunto: "IC Norte, E-0817, Avenida América, Queru Queru Central",
-        referenciasPunto: "N/A",
-        fechaCita: "2025-09-23",
-        horaCita: "10:45:00"
-      }
-    ];
-
-    return res.json(mockCalifications);
+    return res.status(500).json({ message: 'Error al obtener calificaciones' });
   }
 }
 
-async function create(req, res) {
+/**
+ * Obtener todas las calificaciones recibidas por un usuario específico
+ */
+async function getByUsuario(req, res) {
   try {
-    const { productoId, agendamientoId, calificatorId, calificadoId, tipoCalificacion, calificacion, comentario } = req.body;
-    
-    // Validaciones básicas
-    if (!productoId || !agendamientoId || !calificatorId || !calificadoId || !tipoCalificacion || !calificacion) {
-      return res.status(400).json({ message: 'Faltan campos obligatorios' });
+    const { usuarioId } = req.params;
+
+    if (!usuarioId || isNaN(usuarioId)) {
+      return res.status(400).json({ error: 'ID de usuario inválido' });
     }
 
-    if (calificacion < 1 || calificacion > 5) {
-      return res.status(400).json({ message: 'La calificación debe estar entre 1 y 5' });
-    }
+    const [results] = await db.query(`
+      SELECT
+        c.id,
+        c.calificacion,
+        c.comentario,
+        c.tipo_calificacion,
+        c.fecha_comentario AS fecha_creacion,
+        c.agendamiento_id,
 
-    const newCalification = await Calificacion.create({
-      productoId,
-      agendamientoId,
-      calificatorId,
-      calificadoId,
-      tipoCalificacion,
-      calificacion,
-      comentario: comentario || null,
-      fechaComentario: new Date(),
-      estado: 'activo'
-    });
+        -- Datos del calificador (quien dio la calificación)
+        u_calificador.id AS calificador_id,
+        u_calificador.nombre AS calificador_nombre,
+        u_calificador.apellido AS calificador_apellido
 
-    return res.status(201).json({ 
-      message: 'Calificación creada exitosamente',
-      calificacion: newCalification
+      FROM calificaciones c
+      JOIN usuarios u_calificador ON c.calificador_id = u_calificador.id
+
+      WHERE c.calificado_id = ? AND c.estado = 'activo'
+      ORDER BY c.fecha_comentario DESC
+    `, [usuarioId]);
+
+    res.status(200).json({
+      success: true,
+      data: results
     });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: 'Error al crear calificación' });
+    console.error('Error al obtener calificaciones del usuario:', err);
+    res.status(500).json({ error: 'Error al obtener calificaciones del usuario', details: err.message });
   }
 }
 
-async function update(req, res) {
-  try {
-    const { id } = req.params;
-    const { calificacion, comentario, estado } = req.body;
-
-    if (calificacion && (calificacion < 1 || calificacion > 5)) {
-      return res.status(400).json({ message: 'La calificación debe estar entre 1 y 5' });
-    }
-
-    const calification = await Calificacion.findByPk(id);
-    if (!calification) {
-      return res.status(404).json({ message: 'Calificación no encontrada' });
-    }
-
-    await calification.update({
-      calificacion: calificacion || calification.calificacion,
-      comentario: comentario !== undefined ? comentario : calification.comentario,
-      estado: estado || calification.estado
-    });
-
-    return res.json({ 
-      message: 'Calificación actualizada exitosamente',
-      calificacion: calification
-    });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: 'Error al actualizar calificación' });
-  }
-}
-
-async function remove(req, res) {
-  try {
-    const { id } = req.params;
-
-    const calification = await Calificacion.findByPk(id);
-    if (!calification) {
-      return res.status(404).json({ message: 'Calificación no encontrada' });
-    }
-
-    await calification.destroy();
-
-    return res.json({ message: 'Calificación eliminada exitosamente' });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: 'Error al eliminar calificación' });
-  }
-}
-
-module.exports = { getAll, create, update, remove };
+module.exports = { getAll, getByUsuario };

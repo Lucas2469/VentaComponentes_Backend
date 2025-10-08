@@ -30,7 +30,7 @@ async function createSchedule(req, res) {
 
   const { vendedor_id, horarios } = parsed.data;
 
-  const conn = await db.promise().getConnection();
+  const conn = await db.getConnection();
   try {
     if (horarios.length === 0) {
       return res.status(400).json({ error: 'Debe enviar al menos un horario.' });
@@ -63,7 +63,7 @@ async function createSchedule(req, res) {
 async function getSchedulesByVendor(req, res) {
   const { vendedorId } = req.params;
 
-  const conn = await db.promise().getConnection();
+  const conn = await db.getConnection();
   try {
     const [rows] = await conn.query(
       `SELECT id, vendedor_id, dia_semana, hora_inicio, hora_fin
@@ -88,7 +88,7 @@ async function updateSchedules(req, res) {
   const { id } = req.params;
   const { dia_semana, hora_inicio, hora_fin } = req.body;
 
-  const conn = await db.promise().getConnection();
+  const conn = await db.getConnection();
   try {
     const [result] = await conn.query(
       `UPDATE horarios_vendedor
@@ -114,7 +114,7 @@ async function updateSchedules(req, res) {
 async function deleteSchedules(req, res) {
   const { id } = req.params; // id del horario
 
-  const conn = await db.promise().getConnection();
+  const conn = await db.getConnection();
   try {
     const [result] = await conn.query(
       `UPDATE horarios_vendedor

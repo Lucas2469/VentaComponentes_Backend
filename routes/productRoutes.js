@@ -31,9 +31,15 @@ router.get('/category/:categoryId',
 router.get('/:id', validateProductId, ProductController.getProductById);
 
 // Verificar disponibilidad de producto
-router.get('/:id/availability', 
-    validateProductId, 
+router.get('/:id/availability',
+    validateProductId,
     ProductController.checkProductAvailability
+);
+
+// Actualizar estado de producto
+router.put('/:id/status',
+    validateProductId,
+    ProductController.updateProductStatus
 );
 
 module.exports = router;
