@@ -314,38 +314,161 @@ class UserModel {
     }
 
     /**
-     * Verificar contraseña
+     * Verificar contraseña usando bcrypt
      */
     static async verifyPassword(userId, password) {
         const query = `
-            SELECT id
+            SELECT id, password_hash
             FROM usuarios
-            WHERE id = ? AND password_hash = SHA2(?, 256)
+            WHERE id = ?
         `;
 
         try {
-            const [rows] = await db.execute(query, [userId, password]);
-            return rows.length > 0;
+            const [rows] = await db.execute(query, [userId]);
+            if (rows.length === 0) {
+                return false;
+            }
+            
+            const { verifyPassword } = require('../utils/authUtils');
+            const isValid = await verifyPassword(password, rows[0].password_hash);
+            return isValid;
         } catch (error) {
             throw new Error(`Error al verificar contraseña: ${error.message}`);
         }
     }
 
     /**
-     * Actualizar contraseña
+     * Verificar contraseña por email (para login)
      */
-    static async updatePassword(userId, newPassword) {
+    static async verifyPasswordByEmail(email, password) {
         const query = `
-            UPDATE usuarios
-            SET password_hash = SHA2(?, 256)
-            WHERE id = ?
+            SELECT id, password_hash, email, nombre, apellido, tipo_usuario, estado, creditos_disponibles
+            FROM usuarios
+            WHERE email = ?
         `;
 
         try {
-            const [result] = await db.execute(query, [newPassword, userId]);
+            const [rows] = await db.execute(query, [email]);
+            if (rows.length === 0) {
+                return null;
+            }
+            
+            const user = rows[0];
+            const { verifyPassword } = require('../utils/authUtils');
+            const isValid = await verifyPassword(password, user.password_hash);
+            
+            if (isValid) {
+                // No devolver el hash de la contraseña
+                delete user.password_hash;
+                return user;
+            }
+            
+            return null;
+        } catch (error) {
+            throw new Error(`Error al verificar contraseña: ${error.message}`);
+        }
+    }
+
+    /**
+     * Actualizar contraseña usando bcrypt
+     */
+    static async updatePassword(userId, newPassword) {
+        const { hashPassword } = require('../utils/authUtils');
+        
+        try {
+            const hashedPassword = await hashPassword(newPassword);
+            
+            const query = `
+                UPDATE usuarios
+                SET password_hash = ?
+                WHERE id = ?
+            `;
+
+            const [result] = await db.execute(query, [hashedPassword, userId]);
             return result.affectedRows > 0;
         } catch (error) {
             throw new Error(`Error al actualizar contraseña: ${error.message}`);
+        }
+    }
+
+    /**
+     * Crear nuevo usuario con contraseña hasheada
+     */
+    static async createUser(userData) {
+        const { hashPassword, validateEmail, validatePasswordStrength } = require('../utils/authUtils');
+        
+        try {
+            // Validar email
+            if (!validateEmail(userData.email)) {
+                throw new Error('Formato de email inválido');
+            }
+            
+            // Validar contraseña
+            const passwordValidation = validatePasswordStrength(userData.password);
+            if (!passwordValidation.isValid) {
+                throw new Error(`Contraseña inválida: ${passwordValidation.errors.join(', ')}`);
+            }
+            
+            // Verificar que el email no exista
+            const existingUser = await this.getUserByEmail(userData.email);
+            if (existingUser) {
+                throw new Error('El email ya está registrado');
+            }
+            
+            // Hash de la contraseña
+            const hashedPassword = await hashPassword(userData.password);
+            
+            const query = `
+                INSERT INTO usuarios 
+                (nombre, apellido, email, telefono, password_hash, tipo_usuario, creditos_disponibles, estado, fecha_registro)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'activo', NOW())
+            `;
+            
+            const params = [
+                userData.nombre,
+                userData.apellido,
+                userData.email,
+                userData.telefono || null,
+                hashedPassword,
+                userData.tipo_usuario || 'comprador',
+                userData.creditos_disponibles || 0
+            ];
+            
+            const [result] = await db.execute(query, params);
+            return result.insertId;
+        } catch (error) {
+            throw new Error(`Error al crear usuario: ${error.message}`);
+        }
+    }
+
+    /**
+     * Obtener usuario por email
+     */
+    static async getUserByEmail(email) {
+        const query = `
+            SELECT 
+                id,
+                nombre,
+                apellido,
+                email,
+                telefono,
+                tipo_usuario,
+                creditos_disponibles,
+                estado,
+                fecha_registro,
+                fecha_ultima_actividad,
+                calificacion_promedio,
+                total_intercambios_vendedor,
+                total_intercambios_comprador
+            FROM usuarios 
+            WHERE email = ?
+        `;
+        
+        try {
+            const [rows] = await db.execute(query, [email]);
+            return rows.length > 0 ? rows[0] : null;
+        } catch (error) {
+            throw new Error(`Error al obtener usuario por email: ${error.message}`);
         }
     }
 }

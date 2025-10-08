@@ -9,12 +9,48 @@ const port = process.env.PORT || 5000;
 const db = require('./database');
 const RatingNotificationService = require('./utils/ratingNotificationService');
 
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Importar middleware de seguridad
+const { 
+    helmetConfig, 
+    validateOrigin, 
+    sanitizeInputs, 
+    requestLogger, 
+    corsErrorHandler,
+    apiLimiter 
+} = require('./middleware/security');
+
+// Middleware de seguridad
+app.use(helmetConfig);
+app.use(requestLogger);
+app.use(sanitizeInputs);
+app.use(validateOrigin);
+
+// Middleware básico
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// CORS configurado
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:5173'];
 app.use(cors({
-  origin: 'http://localhost:3000', // Allow frontend origin
+    origin: function (origin, callback) {
+        // Permitir requests sin origin (Postman, etc.) en desarrollo
+        if (process.env.NODE_ENV === 'development' && !origin) {
+            return callback(null, true);
+        }
+        
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
+
+// Rate limiting general
+app.use('/api', apiLimiter);
 
 // Archivos estáticos (imágenes)
 app.use('/images', express.static(path.join(__dirname, 'images')));
@@ -22,10 +58,14 @@ app.use('/images', express.static(path.join(__dirname, 'images')));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Rutas
+const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./routes/productRoutes');
 const userRoutes = require('./routes/userRoutes');
 const meetingPointRoutes = require('./routes/meetingPointsRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+
+// Rutas de autenticación (sin protección adicional)
+app.use('/api/auth', authRoutes);
 
 // Core routes
 app.use('/api/products', productRoutes);
@@ -189,16 +229,36 @@ db.getConnection((err, connection) => {
   }
 });
 
+// Manejo de errores de CORS
+app.use(corsErrorHandler);
+
+// Manejo de errores generales
+app.use((err, req, res, next) => {
+    console.error('Error no manejado:', err);
+    
+    if (res.headersSent) {
+        return next(err);
+    }
+    
+    res.status(500).json({
+        success: false,
+        error: 'Error interno del servidor',
+        details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+});
+
 // Start server
 app.listen(port, () => {
     console.log(`🚀 Servidor ejecutándose en puerto ${port}`);
     console.log(`🌐 API disponible en: http://localhost:${port}`);
+    console.log(`🔐 Autenticación API: http://localhost:${port}/api/auth`);
     console.log(`📦 Productos API: http://localhost:${port}/api/products`);
     console.log(`👥 Usuarios API: http://localhost:${port}/api/users`);
     console.log(`💰 Créditos API: http://localhost:${port}/api/creditos`);
     console.log(`📊 Stats API: http://localhost:${port}/api/stats`);
     console.log(`⭐ Ratings API: http://localhost:${port}/api/ratings`);
     console.log(`⭐ Calificaciones API: http://localhost:${port}/api/calificaciones`);
+    console.log(`🔒 Modo: ${process.env.NODE_ENV || 'development'}`);
 
     // Iniciar el servicio de notificaciones de calificación
     RatingNotificationService.startService();
