@@ -301,13 +301,7 @@ class UserController {
             const userId = req.userId;
             const { estado } = req.body;
 
-            // TODO: Reemplazar con autenticación real cuando esté implementada
-            // Por ahora usamos el middleware mockAdminAuth que simula admin autenticado
-
-            // Verificar que el usuario autenticado sea admin
-            if (!req.currentUser || req.currentUser.tipo_usuario !== 'admin') {
-                return errorResponse(res, 'Acceso denegado. Solo administradores pueden realizar esta acción', 403);
-            }
+            // El middleware requireAdmin ya verificó que el usuario es admin
 
             // Validar que el estado sea válido
             const validStates = ['activo', 'inactivo', 'suspendido'];
