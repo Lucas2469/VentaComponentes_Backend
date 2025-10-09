@@ -342,7 +342,9 @@ class UserModel {
      */
     static async verifyPasswordByEmail(email, password) {
         const query = `
-            SELECT id, password_hash, email, nombre, apellido, tipo_usuario, estado, creditos_disponibles
+            SELECT id, password_hash, email, nombre, apellido, telefono, tipo_usuario, estado,
+                   creditos_disponibles, fecha_registro, calificacion_promedio,
+                   total_intercambios_vendedor, total_intercambios_comprador
             FROM usuarios
             WHERE email = ?
         `;

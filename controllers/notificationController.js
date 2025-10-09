@@ -1,5 +1,5 @@
 const NotificationModel = require('../models/notificationModel');
-const WebSocketService = require('../services/websocketService');
+// const WebSocketService = require('../services/websocketService'); // Deshabilitado (requiere socket.io)
 const { successResponse, errorResponse } = require('../utils/responseUtils');
 
 /**
@@ -144,8 +144,9 @@ class NotificationController {
                 return errorResponse(res, 'Faltan campos requeridos', 400);
             }
 
-            // Enviar notificación (crea en BD y envía por WebSocket)
-            const notificationId = await WebSocketService.sendNotificationToUser(usuario_id, {
+            // Crear notificación en BD (WebSocket deshabilitado)
+            const notificationId = await NotificationModel.createNotification({
+                usuario_id,
                 tipo,
                 titulo,
                 mensaje,
@@ -154,7 +155,7 @@ class NotificationController {
                 prioridad
             });
 
-            return successResponse(res, { id: notificationId }, 'Notificación enviada exitosamente', 201);
+            return successResponse(res, { id: notificationId }, 'Notificación creada exitosamente', 201);
 
         } catch (error) {
             console.error('Error creating notification:', error);
@@ -179,15 +180,24 @@ class NotificationController {
                 return errorResponse(res, 'Faltan campos requeridos', 400);
             }
 
-            // Enviar notificaciones
-            const results = await WebSocketService.sendNotificationToMultipleUsers(usuario_ids, {
-                tipo,
-                titulo,
-                mensaje,
-                datos,
-                enlace,
-                prioridad
-            });
+            // Crear notificaciones en BD (WebSocket deshabilitado)
+            const results = [];
+            for (const userId of usuario_ids) {
+                try {
+                    const id = await NotificationModel.createNotification({
+                        usuario_id: userId,
+                        tipo,
+                        titulo,
+                        mensaje,
+                        datos,
+                        enlace,
+                        prioridad
+                    });
+                    results.push({ success: true, userId, id });
+                } catch (error) {
+                    results.push({ success: false, userId, error: error.message });
+                }
+            }
 
             const successful = results.filter(r => r.success).length;
             const failed = results.filter(r => !r.success).length;
@@ -225,12 +235,14 @@ class NotificationController {
     /**
      * Obtener estadísticas de WebSocket (solo admin)
      * GET /api/notifications/websocket-stats
+     * DESHABILITADO - requiere socket.io
      */
     static async getWebSocketStats(req, res) {
         try {
-            const stats = WebSocketService.getStats();
+            // const stats = WebSocketService.getStats();
+            return errorResponse(res, 'WebSocket deshabilitado - requiere socket.io', 503);
 
-            return successResponse(res, stats, 'Estadísticas de WebSocket obtenidas');
+            // return successResponse(res, stats, 'Estadísticas de WebSocket obtenidas');
 
         } catch (error) {
             console.error('Error getting WebSocket stats:', error);
@@ -250,7 +262,9 @@ class NotificationController {
 
             const userId = req.user.id;
 
-            await WebSocketService.sendNotificationToUser(userId, {
+            // WebSocket deshabilitado - crear en BD directamente
+            await NotificationModel.createNotification({
+                usuario_id: userId,
                 tipo: 'sistema',
                 titulo: 'Notificación de Prueba',
                 mensaje: 'Esta es una notificación de prueba del sistema en tiempo real.',

@@ -6,7 +6,7 @@ const helmet = require('helmet');
  */
 const authLimiter = rateLimit({
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutos
-    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 5, // 5 intentos por IP
+    max: parseInt(process.env.AUTH_RATE_LIMIT_MAX) || 50, // Más permisivo en desarrollo
     message: {
         success: false,
         error: 'Demasiados intentos de login. Intenta de nuevo en 15 minutos.',
@@ -58,7 +58,7 @@ const helmetConfig = helmet({
             defaultSrc: ["'self'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com"],
-            imgSrc: ["'self'", "data:", "https:"],
+            imgSrc: ["'self'", "data:", "https:", "http://localhost:5000", "http://localhost:5173"],
             scriptSrc: ["'self'"],
             connectSrc: ["'self'"],
             frameSrc: ["'none'"],
@@ -67,6 +67,7 @@ const helmetConfig = helmet({
         },
     },
     crossOriginEmbedderPolicy: false, // Deshabilitado para compatibilidad con uploads
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // Permitir recursos cross-origin
     hsts: {
         maxAge: 31536000,
         includeSubDomains: true,

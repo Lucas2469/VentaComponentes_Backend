@@ -11,7 +11,7 @@ const port = process.env.PORT || 5000;
 const db = require('./database');
 const RatingNotificationService = require('./utils/ratingNotificationService');
 const TokenCleanupService = require('./services/tokenCleanupService');
-const WebSocketService = require('./services/websocketService');
+// const WebSocketService = require('./services/websocketService'); // ← Deshabilitado temporalmente (requiere socket.io)
 
 // Importar middleware de seguridad
 const { 
@@ -23,11 +23,25 @@ const {
     apiLimiter 
 } = require('./middleware/security');
 
-// Middleware de seguridad
+// Archivos estáticos PRIMERO (antes de middlewares de seguridad para evitar bloqueos)
+// Agregar headers CORS manualmente para imágenes
+app.use('/images', (req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+    res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+}, express.static(path.join(__dirname, 'images')));
+
+// Servir frontend estático
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Middleware de seguridad (después de archivos estáticos)
 app.use(helmetConfig);
 app.use(requestLogger);
 app.use(sanitizeInputs);
-app.use(validateOrigin);
+// validateOrigin solo para rutas API, no para archivos estáticos
+app.use('/api', validateOrigin);
 
 // Middleware básico
 app.use(express.json({ limit: '10mb' }));
@@ -41,7 +55,7 @@ app.use(cors({
         if (process.env.NODE_ENV === 'development' && !origin) {
             return callback(null, true);
         }
-        
+
         if (allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
@@ -55,11 +69,6 @@ app.use(cors({
 
 // Rate limiting general
 app.use('/api', apiLimiter);
-
-// Archivos estáticos (imágenes)
-app.use('/images', express.static(path.join(__dirname, 'images')));
-// Servir frontend estático
-app.use(express.static(path.join(__dirname, 'public')));
 
 // Rutas
 const authRoutes = require('./routes/authRoutes');
@@ -251,8 +260,8 @@ app.use((err, req, res, next) => {
     });
 });
 
-// Inicializar WebSocket Service
-WebSocketService.initialize(httpServer);
+// Inicializar WebSocket Service (Deshabilitado - requiere socket.io)
+// WebSocketService.initialize(httpServer);
 
 // Start server
 httpServer.listen(port, () => {
@@ -265,8 +274,8 @@ httpServer.listen(port, () => {
     console.log(`📊 Stats API: http://localhost:${port}/api/stats`);
     console.log(`⭐ Ratings API: http://localhost:${port}/api/ratings`);
     console.log(`⭐ Calificaciones API: http://localhost:${port}/api/calificaciones`);
-    console.log(`🔔 Notificaciones API: http://localhost:${port}/api/notifications`);
-    console.log(`🔌 WebSocket: ws://localhost:${port}`);
+    console.log(`🔔 Notificaciones API: http://localhost:${port}/api/notificaciones`);
+    // console.log(`🔌 WebSocket: ws://localhost:${port}`); // Deshabilitado
     console.log(`🔒 Modo: ${process.env.NODE_ENV || 'development'}`);
 
     // Iniciar el servicio de notificaciones de calificación
@@ -277,4 +286,4 @@ httpServer.listen(port, () => {
     TokenCleanupService.start(24, 30);
 });
 
-module.exports = { app, httpServer, WebSocketService };
+module.exports = { app, httpServer }; // Removido WebSocketService

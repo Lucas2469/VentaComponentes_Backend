@@ -27,15 +27,17 @@ class AuthController {
                 return errorResponse(res, 'Email y contraseña son requeridos', 400);
             }
 
-            if (!validateEmail(email)) {
-                return errorResponse(res, 'Formato de email inválido', 400);
-            }
+            // No validar formato de email - permitir username o email
+            // if (!validateEmail(email)) {
+            //     return errorResponse(res, 'Formato de email inválido', 400);
+            // }
 
-            // Verificar credenciales
+            // Verificar credenciales (email y contraseña)
             const user = await UserModel.verifyPasswordByEmail(email, password);
-            
+
+            // Mensaje genérico por seguridad (no revelar si email existe o no)
             if (!user) {
-                return errorResponse(res, 'Credenciales incorrectas', 401);
+                return errorResponse(res, 'Email o contraseña incorrectos', 401);
             }
 
             if (user.estado !== 'activo') {

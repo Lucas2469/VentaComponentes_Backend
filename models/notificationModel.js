@@ -88,10 +88,9 @@ class NotificationModel {
             // Ordenar por fecha más reciente
             query += ` ORDER BY fecha_creacion DESC`;
 
-            // Limit
+            // Limit (no usar placeholder para LIMIT, insertar directamente)
             const limit = parseInt(filters.limit) || 50;
-            query += ` LIMIT ?`;
-            params.push(limit);
+            query += ` LIMIT ${limit}`;
 
             const [rows] = await db.execute(query, params);
 
