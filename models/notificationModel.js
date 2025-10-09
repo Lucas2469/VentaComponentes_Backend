@@ -13,19 +13,20 @@ class NotificationModel {
     static async createNotification(notificationData) {
         try {
             const query = `
-                INSERT INTO notifications 
-                (usuario_id, tipo, titulo, mensaje, datos, enlace, prioridad)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO notificaciones
+                (usuario_id, remitente_id, tipo_notificacion, titulo, mensaje, datos, enlace, prioridad)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `;
 
             const params = [
                 notificationData.usuario_id,
-                notificationData.tipo,
+                notificationData.remitente_id || null,
+                notificationData.tipo || notificationData.tipo_notificacion || 'sistema',
                 notificationData.titulo,
                 notificationData.mensaje,
                 notificationData.datos ? JSON.stringify(notificationData.datos) : null,
                 notificationData.enlace || null,
-                notificationData.prioridad || 'media'
+                notificationData.prioridad || 'normal'
             ];
 
             const [result] = await db.execute(query, params);
@@ -46,33 +47,36 @@ class NotificationModel {
     static async getUserNotifications(usuarioId, filters = {}) {
         try {
             let query = `
-                SELECT 
+                SELECT
                     id,
-                    tipo,
+                    usuario_id,
+                    remitente_id,
+                    tipo_notificacion,
                     titulo,
                     mensaje,
                     datos,
-                    leida,
+                    estado,
                     fecha_creacion,
-                    fecha_lectura,
+                    fecha_vista,
                     enlace,
                     prioridad
-                FROM notifications
+                FROM notificaciones
                 WHERE usuario_id = ?
             `;
 
             const params = [usuarioId];
 
-            // Filtro por leída/no leída
+            // Filtro por leída/no leída (mapear estado)
             if (filters.leida !== undefined) {
-                query += ` AND leida = ?`;
-                params.push(filters.leida);
+                const estado = filters.leida ? 'vista' : 'no_vista';
+                query += ` AND estado = ?`;
+                params.push(estado);
             }
 
             // Filtro por tipo
-            if (filters.tipo) {
-                query += ` AND tipo = ?`;
-                params.push(filters.tipo);
+            if (filters.tipo || filters.tipo_notificacion) {
+                query += ` AND tipo_notificacion = ?`;
+                params.push(filters.tipo || filters.tipo_notificacion);
             }
 
             // Filtro por prioridad
@@ -91,11 +95,12 @@ class NotificationModel {
 
             const [rows] = await db.execute(query, params);
 
-            // Parsear JSON en datos
+            // Parsear JSON en datos y mapear estado a leida
             return rows.map(row => ({
                 ...row,
                 datos: row.datos ? JSON.parse(row.datos) : null,
-                leida: Boolean(row.leida)
+                leida: row.estado === 'vista',
+                fecha_lectura: row.fecha_vista
             }));
 
         } catch (error) {
@@ -113,12 +118,12 @@ class NotificationModel {
     static async markAsRead(notificationId, usuarioId) {
         try {
             const query = `
-                UPDATE notifications
-                SET leida = TRUE,
-                    fecha_lectura = NOW()
+                UPDATE notificaciones
+                SET estado = 'vista',
+                    fecha_vista = NOW()
                 WHERE id = ?
                     AND usuario_id = ?
-                    AND leida = FALSE
+                    AND estado = 'no_vista'
             `;
 
             const [result] = await db.execute(query, [notificationId, usuarioId]);
@@ -138,11 +143,11 @@ class NotificationModel {
     static async markAllAsRead(usuarioId) {
         try {
             const query = `
-                UPDATE notifications
-                SET leida = TRUE,
-                    fecha_lectura = NOW()
+                UPDATE notificaciones
+                SET estado = 'vista',
+                    fecha_vista = NOW()
                 WHERE usuario_id = ?
-                    AND leida = FALSE
+                    AND estado = 'no_vista'
             `;
 
             const [result] = await db.execute(query, [usuarioId]);
@@ -163,7 +168,7 @@ class NotificationModel {
     static async deleteNotification(notificationId, usuarioId) {
         try {
             const query = `
-                DELETE FROM notifications
+                DELETE FROM notificaciones
                 WHERE id = ?
                     AND usuario_id = ?
             `;
@@ -185,9 +190,9 @@ class NotificationModel {
     static async deleteAllRead(usuarioId) {
         try {
             const query = `
-                DELETE FROM notifications
+                DELETE FROM notificaciones
                 WHERE usuario_id = ?
-                    AND leida = TRUE
+                    AND estado = 'vista'
             `;
 
             const [result] = await db.execute(query, [usuarioId]);
@@ -208,9 +213,9 @@ class NotificationModel {
         try {
             const query = `
                 SELECT COUNT(*) as total
-                FROM notifications
+                FROM notificaciones
                 WHERE usuario_id = ?
-                    AND leida = FALSE
+                    AND estado = 'no_vista'
             `;
 
             const [rows] = await db.execute(query, [usuarioId]);
@@ -231,19 +236,20 @@ class NotificationModel {
     static async getNotificationById(notificationId, usuarioId) {
         try {
             const query = `
-                SELECT 
+                SELECT
                     id,
                     usuario_id,
-                    tipo,
+                    remitente_id,
+                    tipo_notificacion,
                     titulo,
                     mensaje,
                     datos,
-                    leida,
+                    estado,
                     fecha_creacion,
-                    fecha_lectura,
+                    fecha_vista,
                     enlace,
                     prioridad
-                FROM notifications
+                FROM notificaciones
                 WHERE id = ?
                     AND usuario_id = ?
             `;
@@ -258,7 +264,8 @@ class NotificationModel {
             return {
                 ...notification,
                 datos: notification.datos ? JSON.parse(notification.datos) : null,
-                leida: Boolean(notification.leida)
+                leida: notification.estado === 'vista',
+                fecha_lectura: notification.fecha_vista
             };
 
         } catch (error) {
@@ -275,13 +282,13 @@ class NotificationModel {
     static async cleanupOldNotifications(daysOld = 30) {
         try {
             const query = `
-                DELETE FROM notifications
+                DELETE FROM notificaciones
                 WHERE fecha_creacion < DATE_SUB(NOW(), INTERVAL ? DAY)
-                    AND leida = TRUE
+                    AND estado = 'vista'
             `;
 
             const [result] = await db.execute(query, [daysOld]);
-            
+
             if (result.affectedRows > 0) {
                 console.log(`✅ Limpiadas ${result.affectedRows} notificaciones antiguas`);
             }
@@ -302,13 +309,13 @@ class NotificationModel {
     static async getUserNotificationStats(usuarioId) {
         try {
             const query = `
-                SELECT 
+                SELECT
                     COUNT(*) as total,
-                    COUNT(CASE WHEN leida = FALSE THEN 1 END) as no_leidas,
-                    COUNT(CASE WHEN leida = TRUE THEN 1 END) as leidas,
+                    COUNT(CASE WHEN estado = 'no_vista' THEN 1 END) as no_leidas,
+                    COUNT(CASE WHEN estado = 'vista' THEN 1 END) as leidas,
                     COUNT(CASE WHEN prioridad = 'urgente' THEN 1 END) as urgentes,
                     COUNT(CASE WHEN prioridad = 'alta' THEN 1 END) as altas
-                FROM notifications
+                FROM notificaciones
                 WHERE usuario_id = ?
             `;
 
