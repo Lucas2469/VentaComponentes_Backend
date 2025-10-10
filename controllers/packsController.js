@@ -81,9 +81,12 @@ exports.createPack = async (req, res) => {
 
     let qr_imagen_url = null;
 
-    if (req.file) {
+    // Con upload.fields(), los archivos están en req.files (objeto)
+    const uploadedFile = req.files?.qr?.[0] || req.files?.qr_imagen?.[0] || req.file;
+
+    if (uploadedFile) {
       // Usar siempre el sistema estandarizado /images/imagesPacks/
-      qr_imagen_url = `${PUBLIC_SUBDIR}/${req.file.filename}`;
+      qr_imagen_url = `${PUBLIC_SUBDIR}/${uploadedFile.filename}`;
     }
 
     if (!qr_imagen_url) {
@@ -129,7 +132,10 @@ exports.updatePack = async (req, res) => {
 
     let qr_imagen_url = existing.qr_imagen_url;
 
-    if (req.file) {
+    // Con upload.fields(), los archivos están en req.files (objeto)
+    const uploadedFile = req.files?.qr?.[0] || req.files?.qr_imagen?.[0] || req.file;
+
+    if (uploadedFile) {
       // Eliminar imagen anterior si existe
       if (existing.qr_imagen_url) {
         try {
@@ -140,7 +146,7 @@ exports.updatePack = async (req, res) => {
       }
 
       // Construir nueva URL usando sistema estandarizado
-      qr_imagen_url = `${PUBLIC_SUBDIR}/${req.file.filename}`;
+      qr_imagen_url = `${PUBLIC_SUBDIR}/${uploadedFile.filename}`;
     }
 
     const ok = await Packs.update(id, {

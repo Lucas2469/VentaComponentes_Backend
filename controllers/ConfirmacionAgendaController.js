@@ -36,6 +36,32 @@ async function confirmar(req, res) {
       throw { status: 403, message: 'Solo el vendedor puede confirmar' };
     }
 
+    // Obtener cantidad solicitada (por defecto 1 si no existe el campo)
+    const cantidadSolicitada = ag.cantidad_solicitada || 1;
+
+    // Descontar stock del producto
+    await connection.query(
+      `UPDATE productos
+       SET stock = stock - ?
+       WHERE id = ?`,
+      [cantidadSolicitada, ag.producto_id]
+    );
+
+    // Verificar si el producto quedó agotado y actualizar su estado
+    const [productosCheck] = await connection.query(
+      'SELECT stock FROM productos WHERE id = ?',
+      [ag.producto_id]
+    );
+
+    if (productosCheck.length > 0 && productosCheck[0].stock <= 0) {
+      await connection.query(
+        `UPDATE productos
+         SET estado = 'agotado', stock = 0
+         WHERE id = ?`,
+        [ag.producto_id]
+      );
+    }
+
     // Actualizar agendamiento
     const [updateResult] = await connection.query(
       `UPDATE agendamientos

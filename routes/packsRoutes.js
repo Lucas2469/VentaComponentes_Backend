@@ -65,16 +65,16 @@ router.get('/', getAllPacks);
 router.get('/:id', getPackById);
 
 // Crear - soportar tanto 'qr' como 'qr_imagen'
-router.post('/', (req, res, next) => {
-  const uploadMiddleware = upload.single('qr_imagen') || upload.single('qr');
-  uploadMiddleware(req, res, next);
-}, createPack);
+router.post('/', upload.fields([
+  { name: 'qr', maxCount: 1 },
+  { name: 'qr_imagen', maxCount: 1 }
+]), createPack);
 
-// Actualizar - soportar tanto 'qr' como 'qr_imagen'
-router.put('/:id', (req, res, next) => {
-  const uploadMiddleware = upload.single('qr_imagen') || upload.single('qr');
-  uploadMiddleware(req, res, next);
-}, updatePack);
+// Actualizar - soportar tanto 'qr' como 'qr_imagen' (opcional al editar)
+router.put('/:id', upload.fields([
+  { name: 'qr', maxCount: 1 },
+  { name: 'qr_imagen', maxCount: 1 }
+]), updatePack);
 
 // Borrado lógico
 router.delete('/:id', deletePack);

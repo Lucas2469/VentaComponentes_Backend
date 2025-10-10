@@ -213,6 +213,47 @@ class UserController {
     }
 
     /**
+     * Obtener perfil público de usuario por ID (sin autenticación)
+     * GET /api/users/public/:id
+     */
+    static async getPublicProfile(req, res) {
+        try {
+            const { id } = req.params;
+            const userId = parseInt(id);
+
+            if (!userId || isNaN(userId)) {
+                return errorResponse(res, 'ID de usuario inválido', 400);
+            }
+
+            const user = await UserModel.getUserById(userId);
+
+            if (!user) {
+                return errorResponse(res, 'Usuario no encontrado', 404);
+            }
+
+            // Retornar solo información pública (sin datos sensibles como email, teléfono, password)
+            const publicProfile = {
+                id: user.id,
+                nombre: user.nombre,
+                apellido: user.apellido,
+                tipo_usuario: user.tipo_usuario,
+                creditos_disponibles: user.creditos_disponibles || 0,
+                calificacion_promedio: user.calificacion_promedio,
+                total_intercambios_vendedor: user.total_intercambios_vendedor,
+                total_intercambios_comprador: user.total_intercambios_comprador,
+                fecha_registro: user.fecha_registro,
+                estado: user.estado
+            };
+
+            return successResponse(res, publicProfile, 'Perfil público obtenido exitosamente');
+
+        } catch (error) {
+            console.error('Error en getPublicProfile:', error);
+            return errorResponse(res, 'Error al obtener el perfil público', 500);
+        }
+    }
+
+    /**
      * Actualizar perfil de usuario
      * PUT /api/users/:id
      */
@@ -260,8 +301,13 @@ class UserController {
      */
     static async changePassword(req, res) {
         try {
-            const userId = req.userId;
+            // Obtener userId desde params en lugar de req.userId (sin autenticación JWT)
+            const userId = parseInt(req.params.id);
             const { currentPassword, newPassword } = req.body;
+
+            if (!userId || isNaN(userId)) {
+                return errorResponse(res, 'ID de usuario inválido', 400);
+            }
 
             if (!currentPassword || !newPassword) {
                 return errorResponse(res, 'Debe proporcionar la contraseña actual y la nueva', 400);
@@ -269,6 +315,12 @@ class UserController {
 
             if (newPassword.length < 6) {
                 return errorResponse(res, 'La nueva contraseña debe tener al menos 6 caracteres', 400);
+            }
+
+            // Verificar que el usuario existe
+            const user = await UserModel.getUserById(userId);
+            if (!user) {
+                return errorResponse(res, 'Usuario no encontrado', 404);
             }
 
             // Verificar contraseña actual

@@ -50,6 +50,22 @@ async function createProduct(req, res) {
       if (!punto) throw new Error('Punto de encuentro inválido.');
       await sellerModel.descontarCreditos(conn, seller.id, nuevosCreditos);
       const productoId = await sellerModel.insertarProducto(conn, data, creditosAUsar);
+
+      // Registrar egreso en historial_creditos
+      await conn.query(
+        `INSERT INTO historial_creditos
+         (usuario_id, tipo_movimiento, cantidad, concepto, saldo_anterior, saldo_nuevo, referencia_tabla, referencia_id)
+         VALUES (?, 'egreso', ?, ?, ?, ?, 'productos', ?)`,
+        [
+          seller.id,
+          creditosAUsar,
+          `Publicación de producto: ${data.nombre.substring(0, 50)}`,
+          seller.creditos_disponibles,
+          nuevosCreditos,
+          productoId
+        ]
+      );
+
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const ext = path.extname(file.originalname || '.jpg').toLowerCase();

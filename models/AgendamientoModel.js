@@ -83,13 +83,13 @@ async function crearAgendamiento({ producto_id, comprador_id, fecha_cita, hora_c
 
     console.log('Punto de encuentro:', puntoEncuentro);
 
-    // 6. Insertar agendamiento (sin cantidad_solicitada - modelo de créditos)
+    // 6. Insertar agendamiento CON cantidad_solicitada y precio_total
     const [agendaResult] = await conn.query(
       `INSERT INTO agendamientos
-        (producto_id, comprador_id, vendedor_id, punto_encuentro_id, fecha_cita, hora_cita, dia_semana)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        (producto_id, comprador_id, vendedor_id, punto_encuentro_id, fecha_cita, hora_cita, dia_semana, cantidad_solicitada, precio_total)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
        [producto_id, comprador_id, producto.vendedor_id, producto.punto_encuentro_id,
-        fecha_cita, hora_cita, dia_semana]);
+        fecha_cita, hora_cita, dia_semana, cantidad_solicitada, precio_total]);
 
     const agendamiento_id = agendaResult.insertId;
 

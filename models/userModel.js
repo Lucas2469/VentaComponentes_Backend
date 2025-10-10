@@ -47,8 +47,15 @@ class UserModel {
             params.push(searchTerm, searchTerm, searchTerm);
         }
         
-        // Ordenamiento
-        query += ` ORDER BY fecha_registro DESC`;
+        // Ordenamiento: Admin primero, luego por fecha de registro
+        query += ` ORDER BY
+            CASE tipo_usuario
+                WHEN 'admin' THEN 1
+                WHEN 'vendedor' THEN 2
+                WHEN 'comprador' THEN 3
+                ELSE 4
+            END,
+            fecha_registro DESC`;
         
         // Paginación: validar y forzar enteros
         if (filters.limit !== undefined && filters.limit !== null) {
