@@ -17,7 +17,12 @@ async function getPuntoEncuentroById(conn, id) {
 }
 
 async function descontarCreditos(conn, vendedorId, nuevosCreditos) {
-  await conn.query(`UPDATE usuarios SET creditos_disponibles = ? WHERE id = ?`, [nuevosCreditos, vendedorId]);
+  // ✅ Actualizar créditos Y tipo_usuario en un solo UPDATE
+  const nuevoTipo = nuevosCreditos > 0 ? 'vendedor' : 'comprador';
+  await conn.query(
+    `UPDATE usuarios SET creditos_disponibles = ?, tipo_usuario = ? WHERE id = ?`,
+    [nuevosCreditos, nuevoTipo, vendedorId]
+  );
 }
 
 async function insertarProducto(conn, data, creditos_usados) {
