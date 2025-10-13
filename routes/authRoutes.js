@@ -29,4 +29,10 @@ router.put('/change-password', authenticateToken, strictLimiter, AuthController.
 // GET /api/auth/verify - Verificar si el token es válido
 router.get('/verify', authenticateToken, AuthController.verifyToken);
 
+// POST /api/auth/forgot-password - Solicitar recuperación de contraseña
+router.post('/forgot-password', authLimiter, AuthController.forgotPassword);
+
+// POST /api/auth/reset-password - Restablecer contraseña con token
+router.post('/reset-password', authLimiter, AuthController.resetPassword);
+
 module.exports = router;

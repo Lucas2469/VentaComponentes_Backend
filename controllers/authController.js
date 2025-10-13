@@ -386,6 +386,135 @@ class AuthController {
             return errorResponse(res, 'Error interno del servidor', 500);
         }
     }
+
+    /**
+     * Solicitar recuperación de contraseña (enviar email)
+     * POST /api/auth/forgot-password
+     */
+    static async forgotPassword(req, res) {
+        try {
+            const { email } = req.body;
+
+            if (!email) {
+                return errorResponse(res, 'Email es requerido', 400);
+            }
+
+            // Buscar usuario por email
+            const user = await UserModel.getUserByEmail(email.toLowerCase().trim());
+
+            // Por seguridad, siempre responder exitosamente aunque el email no exista
+            // Esto previene que atacantes descubran qué emails están registrados
+            if (!user) {
+                return successResponse(res, null, 'Si el email existe, recibirás un correo de recuperación');
+            }
+
+            if (user.estado !== 'activo') {
+                return successResponse(res, null, 'Si el email existe, recibirás un correo de recuperación');
+            }
+
+            // Generar token JWT especial para reset password (expira en 1 hora)
+            const jwt = require('jsonwebtoken');
+            const crypto = require('crypto');
+
+            const resetToken = jwt.sign(
+                {
+                    userId: user.id,
+                    email: user.email,
+                    type: 'password_reset',
+                    nonce: crypto.randomBytes(16).toString('hex') // Para prevenir reutilización
+                },
+                process.env.JWT_SECRET,
+                { expiresIn: '1h' }
+            );
+
+            // Enviar email con el token
+            const { sendPasswordResetEmail } = require('../utils/emailUtils');
+            await sendPasswordResetEmail(user.email, resetToken, user.nombre);
+
+            return successResponse(res, null, 'Si el email existe, recibirás un correo de recuperación');
+
+        } catch (error) {
+            console.error('Error en forgot password:', error);
+            // No revelar errores específicos por seguridad
+            return successResponse(res, null, 'Si el email existe, recibirás un correo de recuperación');
+        }
+    }
+
+    /**
+     * Restablecer contraseña con token
+     * POST /api/auth/reset-password
+     */
+    static async resetPassword(req, res) {
+        try {
+            const { token, newPassword } = req.body;
+
+            if (!token || !newPassword) {
+                return errorResponse(res, 'Token y nueva contraseña son requeridos', 400);
+            }
+
+            // Validar nueva contraseña
+            const passwordValidation = validatePasswordStrength(newPassword);
+            if (!passwordValidation.isValid) {
+                return errorResponse(res, `Contraseña inválida: ${passwordValidation.errors.join(', ')}`, 400);
+            }
+
+            // Verificar token JWT
+            const jwt = require('jsonwebtoken');
+            let decoded;
+
+            try {
+                decoded = jwt.verify(token, process.env.JWT_SECRET);
+            } catch (error) {
+                if (error.name === 'TokenExpiredError') {
+                    return errorResponse(res, 'El enlace de recuperación ha expirado. Solicita uno nuevo', 401);
+                }
+                return errorResponse(res, 'Token inválido o malformado', 401);
+            }
+
+            // Verificar que sea un token de reset password
+            if (decoded.type !== 'password_reset') {
+                return errorResponse(res, 'Token inválido', 401);
+            }
+
+            // Obtener usuario
+            const user = await UserModel.getUserById(decoded.userId);
+
+            if (!user) {
+                return errorResponse(res, 'Usuario no encontrado', 404);
+            }
+
+            if (user.estado !== 'activo') {
+                return errorResponse(res, 'Usuario inactivo', 401);
+            }
+
+            // Verificar que el email coincida (seguridad adicional)
+            if (user.email !== decoded.email) {
+                return errorResponse(res, 'Token inválido', 401);
+            }
+
+            // Actualizar contraseña
+            const success = await UserModel.updatePassword(user.id, newPassword);
+
+            if (!success) {
+                return errorResponse(res, 'Error al actualizar contraseña', 500);
+            }
+
+            // Enviar email de confirmación
+            const { sendPasswordChangedEmail } = require('../utils/emailUtils');
+            try {
+                await sendPasswordChangedEmail(user.email, user.nombre);
+            } catch (emailError) {
+                // No fallar la operación si el email de confirmación falla
+                console.error('Error enviando email de confirmación:', emailError);
+            }
+
+            return successResponse(res, null, 'Contraseña actualizada exitosamente');
+
+        } catch (error) {
+            console.error('Error en reset password:', error);
+            return errorResponse(res, 'Error interno del servidor', 500);
+        }
+    }
 }
 
 module.exports = AuthController;
