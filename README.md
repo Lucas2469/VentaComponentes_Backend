@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # VentaComponentes_Backend
 
 Backend para Venta de Componentes usando Node.js, Express y arquitectura MVC.
@@ -17,3 +18,6 @@ Backend para Venta de Componentes usando Node.js, Express y arquitectura MVC.
 ## Endpoints
 
 - GET /api/products: Obtener todos los productos
+=======
+# PS3-VENTA-COMPONENTES-BACKEND
+>>>>>>> davidantonio
