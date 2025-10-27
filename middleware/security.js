@@ -80,13 +80,19 @@ const helmetConfig = helmet({
  */
 const validateOrigin = (req, res, next) => {
     const origin = req.get('Origin');
-    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:5173'];
-    
+    const allowedOriginsStr = process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:5173';
+    const allowedOrigins = allowedOriginsStr.split(',').map(o => o.trim());
+
+    // Si está configurado '*', permitir todos
+    if (allowedOrigins.includes('*')) {
+        return next();
+    }
+
     // Permitir requests sin origin (Postman, etc.) en desarrollo
     if (process.env.NODE_ENV === 'development' && !origin) {
         return next();
     }
-    
+
     if (origin && !allowedOrigins.includes(origin)) {
         return res.status(403).json({
             success: false,
@@ -94,7 +100,7 @@ const validateOrigin = (req, res, next) => {
             allowedOrigins: process.env.NODE_ENV === 'development' ? allowedOrigins : undefined
         });
     }
-    
+
     next();
 };
 
