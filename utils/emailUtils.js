@@ -1,31 +1,19 @@
-const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
 
-/**
- * Configuración del transporter de nodemailer
- */
-const createTransporter = () => {
-    return nodemailer.createTransport({
-        service: process.env.EMAIL_SERVICE || 'gmail',
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASSWORD
-        }
-    });
-};
+// Configurar SendGrid API key
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 /**
  * Enviar email de recuperación de contraseña
  */
 const sendPasswordResetEmail = async (email, resetToken, userName) => {
     try {
-        const transporter = createTransporter();
-
         // URL del frontend para reset password
         const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
 
-        const mailOptions = {
-            from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+        const msg = {
             to: email,
+            from: process.env.EMAIL_FROM,
             subject: 'Recuperación de Contraseña - ElectroMarket',
             html: `
                 <!DOCTYPE html>
@@ -122,12 +110,12 @@ const sendPasswordResetEmail = async (email, resetToken, userName) => {
             `
         };
 
-        const info = await transporter.sendMail(mailOptions);
-        console.log('✅ Email de recuperación enviado:', info.messageId);
-        return { success: true, messageId: info.messageId };
+        const response = await sgMail.send(msg);
+        console.log('✅ Email de recuperación enviado con SendGrid:', response[0].statusCode);
+        return { success: true, messageId: response[0].headers['x-message-id'] };
 
     } catch (error) {
-        console.error('❌ Error enviando email:', error);
+        console.error('❌ Error enviando email con SendGrid:', error);
         throw new Error(`Error al enviar email: ${error.message}`);
     }
 };
@@ -137,11 +125,9 @@ const sendPasswordResetEmail = async (email, resetToken, userName) => {
  */
 const sendPasswordChangedEmail = async (email, userName) => {
     try {
-        const transporter = createTransporter();
-
-        const mailOptions = {
-            from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+        const msg = {
             to: email,
+            from: process.env.EMAIL_FROM,
             subject: 'Contraseña Actualizada - ElectroMarket',
             html: `
                 <!DOCTYPE html>
@@ -222,24 +208,29 @@ const sendPasswordChangedEmail = async (email, userName) => {
             `
         };
 
-        const info = await transporter.sendMail(mailOptions);
-        console.log('✅ Email de confirmación enviado:', info.messageId);
-        return { success: true, messageId: info.messageId };
+        const response = await sgMail.send(msg);
+        console.log('✅ Email de confirmación enviado con SendGrid:', response[0].statusCode);
+        return { success: true, messageId: response[0].headers['x-message-id'] };
 
     } catch (error) {
-        console.error('❌ Error enviando email:', error);
+        console.error('❌ Error enviando email con SendGrid:', error);
         throw new Error(`Error al enviar email: ${error.message}`);
     }
 };
 
 /**
- * Verificar configuración de email
+ * Verificar configuración de email (SendGrid)
  */
 const verifyEmailConfig = async () => {
     try {
-        const transporter = createTransporter();
-        await transporter.verify();
-        console.log('✅ Configuración de email verificada correctamente');
+        if (!process.env.SENDGRID_API_KEY) {
+            throw new Error('SENDGRID_API_KEY no está configurada');
+        }
+        if (!process.env.EMAIL_FROM) {
+            throw new Error('EMAIL_FROM no está configurada');
+        }
+
+        console.log('✅ Configuración de SendGrid verificada correctamente');
         return true;
     } catch (error) {
         console.error('❌ Error en configuración de email:', error);
