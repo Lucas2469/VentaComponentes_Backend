@@ -48,9 +48,16 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // CORS configurado
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:5173'];
+const allowedOriginsStr = process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:5173';
+const allowedOrigins = allowedOriginsStr.split(',').map(o => o.trim());
+
 app.use(cors({
     origin: function (origin, callback) {
+        // Si está configurado '*', permitir todos
+        if (allowedOrigins.includes('*')) {
+            return callback(null, true);
+        }
+
         // Permitir requests sin origin (Postman, etc.) en desarrollo
         if (process.env.NODE_ENV === 'development' && !origin) {
             return callback(null, true);
