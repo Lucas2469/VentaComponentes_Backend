@@ -113,25 +113,27 @@ class ProductController {
      */
     static async searchProducts(req, res) {
         try {
-            const { search } = req.query;
+            // Usar los parámetros validados por el middleware
+            const filters = req.queryParams;
+            const { search } = filters;
 
             if (!search || search.trim().length < 2) {
                 return errorResponse(res, 'El término de búsqueda debe tener al menos 2 caracteres', 400);
             }
 
-            const filters = {
-                ...req.queryParams,
+            const filters_search = {
+                ...filters,
                 search: search.trim()
             };
 
             const [products, totalCount] = await Promise.all([
-                ProductModel.getAllProducts(filters),
-                ProductModel.countProducts(filters)
+                ProductModel.getAllProducts(filters_search),
+                ProductModel.countProducts(filters_search)
             ]);
 
             const pagination = {
-                page: filters.page,
-                limit: filters.limit,
+                page: filters_search.page,
+                limit: filters_search.limit,
                 total: totalCount
             };
 
