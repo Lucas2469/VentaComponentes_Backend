@@ -117,8 +117,8 @@ class ProductController {
             const filters = req.queryParams;
             const { search } = filters;
 
-            if (!search || search.trim().length < 2) {
-                return errorResponse(res, 'El término de búsqueda debe tener al menos 2 caracteres', 400);
+            if (!search || search.trim().length < 1) {
+                return errorResponse(res, 'El término de búsqueda no puede estar vacío', 400);
             }
 
             const filters_search = {

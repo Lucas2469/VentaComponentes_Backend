@@ -33,16 +33,16 @@ const validateProductQuery = (req, res, next) => {
     if (category && (isNaN(category) || parseInt(category) < 1)) {
         errors.push('La categoría debe ser un ID válido');
     }
-    
+
     // Validar estado
     const validStates = ['activo', 'inactivo', 'agotado', 'expirado'];
     if (estado && !validStates.includes(estado)) {
         errors.push('El estado debe ser: activo, inactivo o agotado');
     }
-    
-    // Validar búsqueda
-    if (search && search.trim().length < 2) {
-        errors.push('El término de búsqueda debe tener al menos 2 caracteres');
+
+    // Validar búsqueda - mínimo 1 carácter
+    if (search && search.trim().length < 1) {
+        errors.push('El término de búsqueda no puede estar vacío');
     }
     
     if (errors.length > 0) {
@@ -119,10 +119,10 @@ const validateUserQuery = (req, res, next) => {
     if (tipo_usuario && !validTypes.includes(tipo_usuario)) {
         errors.push('El tipo de usuario debe ser: comprador, vendedor o admin');
     }
-    
-    // Validar búsqueda
-    if (search && search.trim().length < 2) {
-        errors.push('El término de búsqueda debe tener al menos 2 caracteres');
+
+    // Validar búsqueda - mínimo 1 carácter
+    if (search && search.trim().length < 1) {
+        errors.push('El término de búsqueda no puede estar vacío');
     }
     
     if (errors.length > 0) {
