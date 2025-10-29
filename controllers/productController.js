@@ -109,19 +109,19 @@ class ProductController {
 
     /**
      * Buscar productos
-     * GET /api/products/search?q=termino
+     * GET /api/products/search?search=termino
      */
     static async searchProducts(req, res) {
         try {
-            const { q } = req.query;
+            const { search } = req.query;
 
-            if (!q || q.trim().length < 2) {
+            if (!search || search.trim().length < 2) {
                 return errorResponse(res, 'El término de búsqueda debe tener al menos 2 caracteres', 400);
             }
 
             const filters = {
                 ...req.queryParams,
-                search: q.trim()
+                search: search.trim()
             };
 
             const [products, totalCount] = await Promise.all([
@@ -139,7 +139,7 @@ class ProductController {
                 res,
                 products,
                 pagination,
-                `Resultados de búsqueda para "${q}"`
+                `Resultados de búsqueda para "${search}"`
             );
 
         } catch (error) {
