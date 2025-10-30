@@ -287,9 +287,11 @@ const getPendingRatings = async (req, res) => {
     console.log(`\n🔍 [getPendingRatings] Buscando calificaciones pendientes para usuario: ${userId}`);
 
     // Primero, verificar cuántas citas confirmadas tiene este usuario
+    // Nota: Las horas se almacenan en LOCAL TIME (Bolivia UTC-4), pero NOW() retorna UTC
+    // Así que restamos 4 horas de NOW() para comparar correctamente
     const [confirmadas] = await db.execute(
       `SELECT a.id, a.fecha_cita, a.hora_cita, a.estado, a.comprador_id, a.vendedor_id,
-              TIMESTAMPDIFF(MINUTE, NOW(), TIMESTAMP(a.fecha_cita, a.hora_cita)) as minutes_since
+              TIMESTAMPDIFF(MINUTE, TIMESTAMP(a.fecha_cita, a.hora_cita), DATE_ADD(NOW(), INTERVAL -4 HOUR)) as minutes_since
        FROM agendamientos a
        WHERE a.estado IN ('confirmado', 'completado')
          AND (a.comprador_id = ? OR a.vendedor_id = ?)`,
@@ -304,6 +306,7 @@ const getPendingRatings = async (req, res) => {
     }
 
     // Primero, obtener TODAS las citas que han pasado (sin filtrar por can_rate)
+    // Nota: Las horas están en LOCAL TIME, NOW() es UTC, así que restamos 4 horas
     const [allPastAppointments] = await db.execute(
       `SELECT
          a.id as agendamiento_id,
@@ -315,7 +318,7 @@ const getPendingRatings = async (req, res) => {
          CONCAT(vendedor.nombre, ' ', vendedor.apellido) as vendedor_nombre,
          a.fecha_cita,
          a.hora_cita,
-         TIMESTAMPDIFF(MINUTE, NOW(), TIMESTAMP(a.fecha_cita, a.hora_cita)) as minutes_since_meeting,
+         TIMESTAMPDIFF(MINUTE, TIMESTAMP(a.fecha_cita, a.hora_cita), DATE_ADD(NOW(), INTERVAL -4 HOUR)) as minutes_since_meeting,
 
          -- Verificar si puede calificar como vendedor (si es el vendedor y no ha calificado al comprador)
          CASE
@@ -347,7 +350,7 @@ const getPendingRatings = async (req, res) => {
        JOIN usuarios vendedor ON a.vendedor_id = vendedor.id
        WHERE a.estado IN ('confirmado', 'completado')
          AND (a.comprador_id = ? OR a.vendedor_id = ?)
-         AND TIMESTAMPDIFF(MINUTE, NOW(), TIMESTAMP(a.fecha_cita, a.hora_cita)) <= 0
+         AND TIMESTAMPDIFF(MINUTE, TIMESTAMP(a.fecha_cita, a.hora_cita), DATE_ADD(NOW(), INTERVAL -4 HOUR)) >= 0
        ORDER BY a.fecha_cita DESC, a.hora_cita DESC`,
       [userId, userId, userId, userId, userId, userId]
     );
@@ -481,14 +484,15 @@ const checkPendingRatingsAlert = async (req, res) => {
   const { userId } = req.params;
 
   try {
+    // Nota: Las horas se almacenan en LOCAL TIME (UTC-4), NOW() es UTC
     const [pendingRatings] = await db.execute(
       `SELECT
          COUNT(*) as total_pending,
-         MAX(ABS(TIMESTAMPDIFF(MINUTE, NOW(), TIMESTAMP(a.fecha_cita, a.hora_cita)))) as oldest_minutes
+         MAX(TIMESTAMPDIFF(MINUTE, TIMESTAMP(a.fecha_cita, a.hora_cita), DATE_ADD(NOW(), INTERVAL -4 HOUR))) as oldest_minutes
        FROM agendamientos a
        WHERE a.estado IN ('confirmado', 'completado')
          AND (a.comprador_id = ? OR a.vendedor_id = ?)
-         AND TIMESTAMPDIFF(MINUTE, NOW(), TIMESTAMP(a.fecha_cita, a.hora_cita)) <= 0
+         AND TIMESTAMPDIFF(MINUTE, TIMESTAMP(a.fecha_cita, a.hora_cita), DATE_ADD(NOW(), INTERVAL -4 HOUR)) >= 0
          AND (
            (a.vendedor_id = ? AND NOT EXISTS (
              SELECT 1 FROM calificaciones
