@@ -303,9 +303,8 @@ const getPendingRatings = async (req, res) => {
       });
     }
 
-    // Buscar agendamientos confirmados donde el usuario puede calificar
-    // y el encuentro ya ha pasado (minutes_since_meeting <= 0 significa que ya pasó)
-    const [pendingRatings] = await db.execute(
+    // Primero, obtener TODAS las citas que han pasado (sin filtrar por can_rate)
+    const [allPastAppointments] = await db.execute(
       `SELECT
          a.id as agendamiento_id,
          a.producto_id,
@@ -349,10 +348,17 @@ const getPendingRatings = async (req, res) => {
        WHERE a.estado IN ('confirmado', 'completado')
          AND (a.comprador_id = ? OR a.vendedor_id = ?)
          AND TIMESTAMPDIFF(MINUTE, NOW(), TIMESTAMP(a.fecha_cita, a.hora_cita)) <= 0
-       HAVING can_rate_buyer = 1 OR can_rate_vendor = 1
        ORDER BY a.fecha_cita DESC, a.hora_cita DESC`,
       [userId, userId, userId, userId, userId, userId]
     );
+
+    console.log(`📌 Citas pasadas ANTES de filtrar (todas): ${allPastAppointments.length}`);
+    allPastAppointments.forEach(apt => {
+      console.log(`   - ID: ${apt.agendamiento_id}, can_rate_buyer: ${apt.can_rate_buyer}, can_rate_vendor: ${apt.can_rate_vendor}`);
+    });
+
+    // Ahora filtrar las que puede calificar
+    const pendingRatings = allPastAppointments.filter(apt => apt.can_rate_buyer === 1 || apt.can_rate_vendor === 1);
 
     console.log(`✅ Calificaciones pendientes encontradas: ${pendingRatings.length}`);
     if (pendingRatings.length > 0) {
