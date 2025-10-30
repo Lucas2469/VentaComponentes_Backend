@@ -287,11 +287,11 @@ const getPendingRatings = async (req, res) => {
     console.log(`\n🔍 [getPendingRatings] Buscando calificaciones pendientes para usuario: ${userId}`);
 
     // Primero, verificar cuántas citas confirmadas tiene este usuario
-    // NOTA CRÍTICA: a.fecha_cita se guarda en UTC, a.hora_cita en LOCAL (UTC-4)
-    // Tenemos que ajustar la fecha a LOCAL también antes de combinarlas con TIMESTAMP()
+    // NOTA: a.fecha_cita está en UTC, a.hora_cita en LOCAL
+    // Usar CONCAT para crear datetime string correctamente
     const [confirmadas] = await db.execute(
       `SELECT a.id, a.fecha_cita, a.hora_cita, a.estado, a.comprador_id, a.vendedor_id,
-              TIMESTAMPDIFF(MINUTE, TIMESTAMP(DATE_ADD(a.fecha_cita, INTERVAL 4 HOUR), a.hora_cita), DATE_ADD(NOW(), INTERVAL -4 HOUR)) as minutes_since
+              TIMESTAMPDIFF(MINUTE, CAST(CONCAT(a.fecha_cita, ' ', a.hora_cita) AS DATETIME) + INTERVAL 4 HOUR, DATE_ADD(NOW(), INTERVAL -4 HOUR)) as minutes_since
        FROM agendamientos a
        WHERE a.estado IN ('confirmado', 'completado')
          AND (a.comprador_id = ? OR a.vendedor_id = ?)`,
@@ -306,7 +306,7 @@ const getPendingRatings = async (req, res) => {
     }
 
     // Primero, obtener TODAS las citas que han pasado (sin filtrar por can_rate)
-    // NOTA CRÍTICA: a.fecha_cita en UTC, a.hora_cita en LOCAL - ajustar fecha a LOCAL con +4 horas
+    // Usar CONCAT + CAST para crear datetime correctamente, luego sumar 4 horas
     const [allPastAppointments] = await db.execute(
       `SELECT
          a.id as agendamiento_id,
@@ -318,7 +318,7 @@ const getPendingRatings = async (req, res) => {
          CONCAT(vendedor.nombre, ' ', vendedor.apellido) as vendedor_nombre,
          a.fecha_cita,
          a.hora_cita,
-         TIMESTAMPDIFF(MINUTE, TIMESTAMP(DATE_ADD(a.fecha_cita, INTERVAL 4 HOUR), a.hora_cita), DATE_ADD(NOW(), INTERVAL -4 HOUR)) as minutes_since_meeting,
+         TIMESTAMPDIFF(MINUTE, CAST(CONCAT(a.fecha_cita, ' ', a.hora_cita) AS DATETIME) + INTERVAL 4 HOUR, DATE_ADD(NOW(), INTERVAL -4 HOUR)) as minutes_since_meeting,
 
          -- Verificar si puede calificar como vendedor (si es el vendedor y no ha calificado al comprador)
          CASE
@@ -350,7 +350,7 @@ const getPendingRatings = async (req, res) => {
        JOIN usuarios vendedor ON a.vendedor_id = vendedor.id
        WHERE a.estado IN ('confirmado', 'completado')
          AND (a.comprador_id = ? OR a.vendedor_id = ?)
-         AND TIMESTAMPDIFF(MINUTE, TIMESTAMP(DATE_ADD(a.fecha_cita, INTERVAL 4 HOUR), a.hora_cita), DATE_ADD(NOW(), INTERVAL -4 HOUR)) >= 0
+         AND TIMESTAMPDIFF(MINUTE, CAST(CONCAT(a.fecha_cita, ' ', a.hora_cita) AS DATETIME) + INTERVAL 4 HOUR, DATE_ADD(NOW(), INTERVAL -4 HOUR)) >= 0
        ORDER BY a.fecha_cita DESC, a.hora_cita DESC`,
       [userId, userId, userId, userId, userId, userId]
     );
@@ -484,15 +484,15 @@ const checkPendingRatingsAlert = async (req, res) => {
   const { userId } = req.params;
 
   try {
-    // Nota: fecha en UTC, hora en LOCAL - ajustar fecha con +4 horas
+    // Nota: fecha en UTC, hora en LOCAL - usar CONCAT + CAST
     const [pendingRatings] = await db.execute(
       `SELECT
          COUNT(*) as total_pending,
-         MAX(TIMESTAMPDIFF(MINUTE, TIMESTAMP(DATE_ADD(a.fecha_cita, INTERVAL 4 HOUR), a.hora_cita), DATE_ADD(NOW(), INTERVAL -4 HOUR))) as oldest_minutes
+         MAX(TIMESTAMPDIFF(MINUTE, CAST(CONCAT(a.fecha_cita, ' ', a.hora_cita) AS DATETIME) + INTERVAL 4 HOUR, DATE_ADD(NOW(), INTERVAL -4 HOUR))) as oldest_minutes
        FROM agendamientos a
        WHERE a.estado IN ('confirmado', 'completado')
          AND (a.comprador_id = ? OR a.vendedor_id = ?)
-         AND TIMESTAMPDIFF(MINUTE, TIMESTAMP(DATE_ADD(a.fecha_cita, INTERVAL 4 HOUR), a.hora_cita), DATE_ADD(NOW(), INTERVAL -4 HOUR)) >= 0
+         AND TIMESTAMPDIFF(MINUTE, CAST(CONCAT(a.fecha_cita, ' ', a.hora_cita) AS DATETIME) + INTERVAL 4 HOUR, DATE_ADD(NOW(), INTERVAL -4 HOUR)) >= 0
          AND (
            (a.vendedor_id = ? AND NOT EXISTS (
              SELECT 1 FROM calificaciones
