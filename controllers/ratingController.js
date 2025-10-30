@@ -346,21 +346,37 @@ const getPendingRatings = async (req, res) => {
     // 1. Ya han pasado
     // 2. El usuario aún puede calificar
     const pendingRatings = allAppointments.filter(apt => {
-      // Construir datetime de la cita (fecha en UTC, hora en LOCAL)
-      const [year, month, day] = apt.fecha_cita.split('-').map(Number);
-      const [hour, minute, second] = apt.hora_cita.split(':').map(Number);
+      try {
+        // Manejar fecha (puede ser Date o string)
+        let dateString = apt.fecha_cita;
+        if (apt.fecha_cita instanceof Date) {
+          dateString = apt.fecha_cita.toISOString().split('T')[0]; // Convertir a YYYY-MM-DD
+        }
 
-      // Crear fecha en LOCAL (simular como si fuera local directamente)
-      const appointmentLocal = new Date(year, month - 1, day, hour, minute, second);
+        // Manejar hora (puede ser Date o string)
+        let horaString = apt.hora_cita;
+        if (apt.hora_cita instanceof Date) {
+          horaString = apt.hora_cita.toISOString().split('T')[1]; // Convertir a HH:MM:SS
+        }
 
-      const minutesPassed = (nowLocal - appointmentLocal) / (1000 * 60);
+        const [year, month, day] = dateString.split('-').map(Number);
+        const [hour, minute, second] = horaString.split(':').map(Number);
 
-      console.log(`   - ID: ${apt.agendamiento_id}, Cita: ${apt.fecha_cita} ${apt.hora_cita}, Minutos pasados: ${minutesPassed.toFixed(0)}, can_rate: ${apt.can_rate_buyer || apt.can_rate_vendor}`);
+        // Crear fecha en LOCAL (simular como si fuera local directamente)
+        const appointmentLocal = new Date(year, month - 1, day, hour, minute, second);
 
-      // Retornar solo si:
-      // 1. Ya pasó (minutesPassed >= 0)
-      // 2. Puede calificar (can_rate_buyer = 1 OR can_rate_vendor = 1)
-      return minutesPassed >= 0 && (apt.can_rate_buyer === 1 || apt.can_rate_vendor === 1);
+        const minutesPassed = (nowLocal - appointmentLocal) / (1000 * 60);
+
+        console.log(`   - ID: ${apt.agendamiento_id}, Cita: ${dateString} ${horaString}, Minutos pasados: ${minutesPassed.toFixed(0)}, can_rate: ${apt.can_rate_buyer || apt.can_rate_vendor}`);
+
+        // Retornar solo si:
+        // 1. Ya pasó (minutesPassed >= 0)
+        // 2. Puede calificar (can_rate_buyer = 1 OR can_rate_vendor = 1)
+        return minutesPassed >= 0 && (apt.can_rate_buyer === 1 || apt.can_rate_vendor === 1);
+      } catch (err) {
+        console.error(`Error procesando cita ID ${apt.agendamiento_id}:`, err);
+        return false;
+      }
     });
 
     console.log(`✅ Calificaciones pendientes encontradas: ${pendingRatings.length}`);
@@ -516,21 +532,53 @@ const checkPendingRatingsAlert = async (req, res) => {
 
     // Filtrar citas que pasaron y pueden calificarse
     const pendingRatings = allAppointments.filter(apt => {
-      const [year, month, day] = apt.fecha_cita.split('-').map(Number);
-      const [hour, minute, second] = apt.hora_cita.split(':').map(Number);
-      const appointmentLocal = new Date(year, month - 1, day, hour, minute, second);
-      const minutesPassed = (nowLocal - appointmentLocal) / (1000 * 60);
+      try {
+        // Manejar fecha (puede ser Date o string)
+        let dateString = apt.fecha_cita;
+        if (apt.fecha_cita instanceof Date) {
+          dateString = apt.fecha_cita.toISOString().split('T')[0];
+        }
 
-      return minutesPassed >= 0 && (apt.can_rate_buyer === 1 || apt.can_rate_vendor === 1);
+        // Manejar hora (puede ser Date o string)
+        let horaString = apt.hora_cita;
+        if (apt.hora_cita instanceof Date) {
+          horaString = apt.hora_cita.toISOString().split('T')[1];
+        }
+
+        const [year, month, day] = dateString.split('-').map(Number);
+        const [hour, minute, second] = horaString.split(':').map(Number);
+        const appointmentLocal = new Date(year, month - 1, day, hour, minute, second);
+        const minutesPassed = (nowLocal - appointmentLocal) / (1000 * 60);
+
+        return minutesPassed >= 0 && (apt.can_rate_buyer === 1 || apt.can_rate_vendor === 1);
+      } catch (err) {
+        console.error(`Error en checkPendingRatingsAlert para cita ID ${apt.agendamiento_id}:`, err);
+        return false;
+      }
     });
 
     // Encontrar el más antiguo (mayor minutos pasados)
     let oldestMinutes = 0;
     if (pendingRatings.length > 0) {
-      const [year, month, day] = pendingRatings[0].fecha_cita.split('-').map(Number);
-      const [hour, minute, second] = pendingRatings[0].hora_cita.split(':').map(Number);
-      const appointmentLocal = new Date(year, month - 1, day, hour, minute, second);
-      oldestMinutes = Math.floor((nowLocal - appointmentLocal) / (1000 * 60));
+      try {
+        const apt = pendingRatings[0];
+        let dateString = apt.fecha_cita;
+        if (apt.fecha_cita instanceof Date) {
+          dateString = apt.fecha_cita.toISOString().split('T')[0];
+        }
+
+        let horaString = apt.hora_cita;
+        if (apt.hora_cita instanceof Date) {
+          horaString = apt.hora_cita.toISOString().split('T')[1];
+        }
+
+        const [year, month, day] = dateString.split('-').map(Number);
+        const [hour, minute, second] = horaString.split(':').map(Number);
+        const appointmentLocal = new Date(year, month - 1, day, hour, minute, second);
+        oldestMinutes = Math.floor((nowLocal - appointmentLocal) / (1000 * 60));
+      } catch (err) {
+        console.error('Error calculando oldestMinutes:', err);
+      }
     }
 
     res.json({
