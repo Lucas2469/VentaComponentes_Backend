@@ -286,28 +286,8 @@ const getPendingRatings = async (req, res) => {
   try {
     console.log(`\n🔍 [getPendingRatings] Buscando calificaciones pendientes para usuario: ${userId}`);
 
-    // Primero, verificar cuántas citas confirmadas tiene este usuario
-    // NOTA: a.fecha_cita está en UTC, a.hora_cita en LOCAL
-    // Usar CONCAT para crear datetime string correctamente
-    const [confirmadas] = await db.execute(
-      `SELECT a.id, a.fecha_cita, a.hora_cita, a.estado, a.comprador_id, a.vendedor_id,
-              TIMESTAMPDIFF(MINUTE, CAST(CONCAT(a.fecha_cita, ' ', a.hora_cita) AS DATETIME) + INTERVAL 4 HOUR, DATE_ADD(NOW(), INTERVAL -4 HOUR)) as minutes_since
-       FROM agendamientos a
-       WHERE a.estado IN ('confirmado', 'completado')
-         AND (a.comprador_id = ? OR a.vendedor_id = ?)`,
-      [userId, userId]
-    );
-
-    console.log(`📋 Citas confirmadas/completadas para usuario ${userId}:`, confirmadas.length);
-    if (confirmadas.length > 0) {
-      confirmadas.forEach(c => {
-        console.log(`   - ID: ${c.id}, Estado: ${c.estado}, Fecha: ${c.fecha_cita}, Hora: ${c.hora_cita}, Minutos pasados: ${c.minutes_since}`);
-      });
-    }
-
-    // Primero, obtener TODAS las citas que han pasado (sin filtrar por can_rate)
-    // Usar CONCAT + CAST para crear datetime correctamente, luego sumar 4 horas
-    const [allPastAppointments] = await db.execute(
+    // Obtener TODAS las citas (sin filtros de fecha en SQL)
+    const [allAppointments] = await db.execute(
       `SELECT
          a.id as agendamiento_id,
          a.producto_id,
@@ -318,9 +298,8 @@ const getPendingRatings = async (req, res) => {
          CONCAT(vendedor.nombre, ' ', vendedor.apellido) as vendedor_nombre,
          a.fecha_cita,
          a.hora_cita,
-         TIMESTAMPDIFF(MINUTE, CAST(CONCAT(a.fecha_cita, ' ', a.hora_cita) AS DATETIME) + INTERVAL 4 HOUR, DATE_ADD(NOW(), INTERVAL -4 HOUR)) as minutes_since_meeting,
 
-         -- Verificar si puede calificar como vendedor (si es el vendedor y no ha calificado al comprador)
+         -- Verificar si puede calificar como vendedor
          CASE
            WHEN a.vendedor_id = ? AND NOT EXISTS (
              SELECT 1 FROM calificaciones
@@ -332,7 +311,7 @@ const getPendingRatings = async (req, res) => {
            ELSE 0
          END as can_rate_buyer,
 
-         -- Verificar si puede calificar como comprador (si es el comprador y no ha calificado al vendedor)
+         -- Verificar si puede calificar como comprador
          CASE
            WHEN a.comprador_id = ? AND NOT EXISTS (
              SELECT 1 FROM calificaciones
@@ -350,23 +329,44 @@ const getPendingRatings = async (req, res) => {
        JOIN usuarios vendedor ON a.vendedor_id = vendedor.id
        WHERE a.estado IN ('confirmado', 'completado')
          AND (a.comprador_id = ? OR a.vendedor_id = ?)
-         AND TIMESTAMPDIFF(MINUTE, CAST(CONCAT(a.fecha_cita, ' ', a.hora_cita) AS DATETIME) + INTERVAL 4 HOUR, DATE_ADD(NOW(), INTERVAL -4 HOUR)) >= 0
        ORDER BY a.fecha_cita DESC, a.hora_cita DESC`,
       [userId, userId, userId, userId, userId, userId]
     );
 
-    console.log(`📌 Citas pasadas ANTES de filtrar (todas): ${allPastAppointments.length}`);
-    allPastAppointments.forEach(apt => {
-      console.log(`   - ID: ${apt.agendamiento_id}, can_rate_buyer: ${apt.can_rate_buyer}, can_rate_vendor: ${apt.can_rate_vendor}`);
-    });
+    console.log(`📋 Total de citas confirmadas/completadas: ${allAppointments.length}`);
 
-    // Ahora filtrar las que puede calificar
-    const pendingRatings = allPastAppointments.filter(apt => apt.can_rate_buyer === 1 || apt.can_rate_vendor === 1);
+    // LÓGICA DE TIMEZONE EN JAVASCRIPT (confiable)
+    const nowUTC = new Date();
+    const nowLocal = new Date(nowUTC.getTime() - (4 * 60 * 60 * 1000)); // Restar 4 horas para convertir a local
+
+    console.log(`🕐 Hora actual UTC: ${nowUTC.toISOString()}`);
+    console.log(`🕐 Hora actual LOCAL (Bolivia): ${nowLocal.toISOString()}`);
+
+    // Filtrar citas que:
+    // 1. Ya han pasado
+    // 2. El usuario aún puede calificar
+    const pendingRatings = allAppointments.filter(apt => {
+      // Construir datetime de la cita (fecha en UTC, hora en LOCAL)
+      const [year, month, day] = apt.fecha_cita.split('-').map(Number);
+      const [hour, minute, second] = apt.hora_cita.split(':').map(Number);
+
+      // Crear fecha en LOCAL (simular como si fuera local directamente)
+      const appointmentLocal = new Date(year, month - 1, day, hour, minute, second);
+
+      const minutesPassed = (nowLocal - appointmentLocal) / (1000 * 60);
+
+      console.log(`   - ID: ${apt.agendamiento_id}, Cita: ${apt.fecha_cita} ${apt.hora_cita}, Minutos pasados: ${minutesPassed.toFixed(0)}, can_rate: ${apt.can_rate_buyer || apt.can_rate_vendor}`);
+
+      // Retornar solo si:
+      // 1. Ya pasó (minutesPassed >= 0)
+      // 2. Puede calificar (can_rate_buyer = 1 OR can_rate_vendor = 1)
+      return minutesPassed >= 0 && (apt.can_rate_buyer === 1 || apt.can_rate_vendor === 1);
+    });
 
     console.log(`✅ Calificaciones pendientes encontradas: ${pendingRatings.length}`);
     if (pendingRatings.length > 0) {
       pendingRatings.forEach(p => {
-        console.log(`   - ID: ${p.agendamiento_id}, Producto: ${p.producto_nombre}, can_rate_buyer: ${p.can_rate_buyer}, can_rate_vendor: ${p.can_rate_vendor}`);
+        console.log(`   ✔️ ID: ${p.agendamiento_id}, Producto: ${p.producto_nombre}`);
       });
     }
 
@@ -484,41 +484,59 @@ const checkPendingRatingsAlert = async (req, res) => {
   const { userId } = req.params;
 
   try {
-    // Nota: fecha en UTC, hora en LOCAL - usar CONCAT + CAST
-    const [pendingRatings] = await db.execute(
+    // Obtener TODAS las citas (sin filtros de fecha en SQL)
+    const [allAppointments] = await db.execute(
       `SELECT
-         COUNT(*) as total_pending,
-         MAX(TIMESTAMPDIFF(MINUTE, CAST(CONCAT(a.fecha_cita, ' ', a.hora_cita) AS DATETIME) + INTERVAL 4 HOUR, DATE_ADD(NOW(), INTERVAL -4 HOUR))) as oldest_minutes
+         a.id as agendamiento_id,
+         a.fecha_cita,
+         a.hora_cita,
+         CASE
+           WHEN a.vendedor_id = ? AND NOT EXISTS (
+             SELECT 1 FROM calificaciones
+             WHERE agendamiento_id = a.id AND calificador_id = ?
+             AND tipo_calificacion = 'vendedor_a_comprador' AND estado = 'activo'
+           ) THEN 1 ELSE 0
+         END as can_rate_buyer,
+         CASE
+           WHEN a.comprador_id = ? AND NOT EXISTS (
+             SELECT 1 FROM calificaciones
+             WHERE agendamiento_id = a.id AND calificador_id = ?
+             AND tipo_calificacion = 'comprador_a_vendedor' AND estado = 'activo'
+           ) THEN 1 ELSE 0
+         END as can_rate_vendor
        FROM agendamientos a
        WHERE a.estado IN ('confirmado', 'completado')
-         AND (a.comprador_id = ? OR a.vendedor_id = ?)
-         AND TIMESTAMPDIFF(MINUTE, CAST(CONCAT(a.fecha_cita, ' ', a.hora_cita) AS DATETIME) + INTERVAL 4 HOUR, DATE_ADD(NOW(), INTERVAL -4 HOUR)) >= 0
-         AND (
-           (a.vendedor_id = ? AND NOT EXISTS (
-             SELECT 1 FROM calificaciones
-             WHERE agendamiento_id = a.id
-             AND calificador_id = ?
-             AND tipo_calificacion = 'vendedor_a_comprador'
-             AND estado = 'activo'
-           ))
-           OR
-           (a.comprador_id = ? AND NOT EXISTS (
-             SELECT 1 FROM calificaciones
-             WHERE agendamiento_id = a.id
-             AND calificador_id = ?
-             AND tipo_calificacion = 'comprador_a_vendedor'
-             AND estado = 'activo'
-           ))
-         )`,
+         AND (a.comprador_id = ? OR a.vendedor_id = ?)`,
       [userId, userId, userId, userId, userId, userId]
     );
 
-    const result = pendingRatings[0];
+    // LÓGICA DE TIMEZONE EN JAVASCRIPT
+    const nowUTC = new Date();
+    const nowLocal = new Date(nowUTC.getTime() - (4 * 60 * 60 * 1000));
+
+    // Filtrar citas que pasaron y pueden calificarse
+    const pendingRatings = allAppointments.filter(apt => {
+      const [year, month, day] = apt.fecha_cita.split('-').map(Number);
+      const [hour, minute, second] = apt.hora_cita.split(':').map(Number);
+      const appointmentLocal = new Date(year, month - 1, day, hour, minute, second);
+      const minutesPassed = (nowLocal - appointmentLocal) / (1000 * 60);
+
+      return minutesPassed >= 0 && (apt.can_rate_buyer === 1 || apt.can_rate_vendor === 1);
+    });
+
+    // Encontrar el más antiguo (mayor minutos pasados)
+    let oldestMinutes = 0;
+    if (pendingRatings.length > 0) {
+      const [year, month, day] = pendingRatings[0].fecha_cita.split('-').map(Number);
+      const [hour, minute, second] = pendingRatings[0].hora_cita.split(':').map(Number);
+      const appointmentLocal = new Date(year, month - 1, day, hour, minute, second);
+      oldestMinutes = Math.floor((nowLocal - appointmentLocal) / (1000 * 60));
+    }
 
     res.json({
-      hasPendingRatings: result.total_pending > 0,
-      count: result.total_pending || 0,
-      oldestMinutes: result.oldest_minutes || 0
+      hasPendingRatings: pendingRatings.length > 0,
+      count: pendingRatings.length || 0,
+      oldestMinutes: Math.abs(oldestMinutes) || 0
     });
 
   } catch (error) {
