@@ -289,7 +289,7 @@ const getPendingRatings = async (req, res) => {
     // Primero, verificar cuántas citas confirmadas tiene este usuario
     const [confirmadas] = await db.execute(
       `SELECT a.id, a.fecha_cita, a.hora_cita, a.estado, a.comprador_id, a.vendedor_id,
-              TIMESTAMPDIFF(MINUTE, TIMESTAMP(a.fecha_cita, a.hora_cita), NOW()) as minutes_since
+              TIMESTAMPDIFF(MINUTE, NOW(), TIMESTAMP(a.fecha_cita, a.hora_cita)) as minutes_since
        FROM agendamientos a
        WHERE a.estado IN ('confirmado', 'completado')
          AND (a.comprador_id = ? OR a.vendedor_id = ?)`,
@@ -304,7 +304,7 @@ const getPendingRatings = async (req, res) => {
     }
 
     // Buscar agendamientos confirmados donde el usuario puede calificar
-    // y han pasado al menos 0 minutos desde el encuentro (para testing)
+    // y el encuentro ya ha pasado (minutes_since_meeting <= 0 significa que ya pasó)
     const [pendingRatings] = await db.execute(
       `SELECT
          a.id as agendamiento_id,
@@ -316,7 +316,7 @@ const getPendingRatings = async (req, res) => {
          CONCAT(vendedor.nombre, ' ', vendedor.apellido) as vendedor_nombre,
          a.fecha_cita,
          a.hora_cita,
-         TIMESTAMPDIFF(MINUTE, TIMESTAMP(a.fecha_cita, a.hora_cita), NOW()) as minutes_since_meeting,
+         TIMESTAMPDIFF(MINUTE, NOW(), TIMESTAMP(a.fecha_cita, a.hora_cita)) as minutes_since_meeting,
 
          -- Verificar si puede calificar como vendedor (si es el vendedor y no ha calificado al comprador)
          CASE
@@ -348,7 +348,7 @@ const getPendingRatings = async (req, res) => {
        JOIN usuarios vendedor ON a.vendedor_id = vendedor.id
        WHERE a.estado IN ('confirmado', 'completado')
          AND (a.comprador_id = ? OR a.vendedor_id = ?)
-         AND TIMESTAMPDIFF(MINUTE, TIMESTAMP(a.fecha_cita, a.hora_cita), NOW()) >= 0
+         AND TIMESTAMPDIFF(MINUTE, NOW(), TIMESTAMP(a.fecha_cita, a.hora_cita)) <= 0
        HAVING can_rate_buyer = 1 OR can_rate_vendor = 1
        ORDER BY a.fecha_cita DESC, a.hora_cita DESC`,
       [userId, userId, userId, userId, userId, userId]
@@ -478,11 +478,11 @@ const checkPendingRatingsAlert = async (req, res) => {
     const [pendingRatings] = await db.execute(
       `SELECT
          COUNT(*) as total_pending,
-         MAX(TIMESTAMPDIFF(MINUTE, TIMESTAMP(a.fecha_cita, a.hora_cita), NOW())) as oldest_minutes
+         MAX(ABS(TIMESTAMPDIFF(MINUTE, NOW(), TIMESTAMP(a.fecha_cita, a.hora_cita)))) as oldest_minutes
        FROM agendamientos a
        WHERE a.estado IN ('confirmado', 'completado')
          AND (a.comprador_id = ? OR a.vendedor_id = ?)
-         AND TIMESTAMPDIFF(MINUTE, TIMESTAMP(a.fecha_cita, a.hora_cita), NOW()) >= 0
+         AND TIMESTAMPDIFF(MINUTE, NOW(), TIMESTAMP(a.fecha_cita, a.hora_cita)) <= 0
          AND (
            (a.vendedor_id = ? AND NOT EXISTS (
              SELECT 1 FROM calificaciones
