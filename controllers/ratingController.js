@@ -284,6 +284,25 @@ const getPendingRatings = async (req, res) => {
   const { userId } = req.params;
 
   try {
+    console.log(`\n🔍 [getPendingRatings] Buscando calificaciones pendientes para usuario: ${userId}`);
+
+    // Primero, verificar cuántas citas confirmadas tiene este usuario
+    const [confirmadas] = await db.execute(
+      `SELECT a.id, a.fecha_cita, a.hora_cita, a.estado, a.comprador_id, a.vendedor_id,
+              TIMESTAMPDIFF(MINUTE, CONCAT(a.fecha_cita, ' ', a.hora_cita), NOW()) as minutes_since
+       FROM agendamientos a
+       WHERE a.estado IN ('confirmado', 'completado')
+         AND (a.comprador_id = ? OR a.vendedor_id = ?)`,
+      [userId, userId]
+    );
+
+    console.log(`📋 Citas confirmadas/completadas para usuario ${userId}:`, confirmadas.length);
+    if (confirmadas.length > 0) {
+      confirmadas.forEach(c => {
+        console.log(`   - ID: ${c.id}, Estado: ${c.estado}, Fecha: ${c.fecha_cita}, Hora: ${c.hora_cita}, Minutos pasados: ${c.minutes_since}`);
+      });
+    }
+
     // Buscar agendamientos confirmados donde el usuario puede calificar
     // y han pasado al menos 0 minutos desde el encuentro (para testing)
     const [pendingRatings] = await db.execute(
@@ -334,6 +353,13 @@ const getPendingRatings = async (req, res) => {
        ORDER BY a.fecha_cita DESC, a.hora_cita DESC`,
       [userId, userId, userId, userId, userId, userId]
     );
+
+    console.log(`✅ Calificaciones pendientes encontradas: ${pendingRatings.length}`);
+    if (pendingRatings.length > 0) {
+      pendingRatings.forEach(p => {
+        console.log(`   - ID: ${p.agendamiento_id}, Producto: ${p.producto_nombre}, can_rate_buyer: ${p.can_rate_buyer}, can_rate_vendor: ${p.can_rate_vendor}`);
+      });
+    }
 
     res.json(pendingRatings);
   } catch (error) {
