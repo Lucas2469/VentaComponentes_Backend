@@ -75,6 +75,12 @@ const deleteCategory = async (req, res) => {
   } catch (err) {
     if (err.message === 'Category not found') {
       res.status(404).json({ error: err.message });
+    } else if (err.message.includes('foreign key constraint') || err.message.includes('CONSTRAINT')) {
+      // ✅ Error por dependencias (productos usando esta categoría)
+      res.status(409).json({
+        error: 'No se puede eliminar esta categoría porque hay productos asociados. Primero elimina o reasigna los productos.',
+        reason: 'FOREIGN_KEY_CONSTRAINT'
+      });
     } else {
       console.error('Error en deleteCategory:', err);
       res.status(500).json({ error: err.message });
