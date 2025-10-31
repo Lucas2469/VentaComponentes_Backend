@@ -22,9 +22,19 @@ exports.comprarCreditos = async (req, res) => {
     const cant = Number(cantidad_creditos ?? pack.cantidad_creditos);
     const monto = Number(monto_pagado ?? pack.precio);
 
-    // Cloudinary proporciona la URL pública directamente en file.path
-    const comprobantePath = req.file.path;
-    console.log(`✅ Comprobante subido a Cloudinary: ${comprobantePath}`);
+    // Construir URL del comprobante (Cloudinary o local diskStorage)
+    let comprobantePath = req.file.path;
+
+    // Si es diskStorage (fallback), convertir path local a URL relativa
+    if (comprobantePath.includes(process.cwd())) {
+      // Es una ruta local del sistema, convertir a URL relativa
+      const filename = req.file.filename || req.file.originalname;
+      comprobantePath = `/images/imagesPayments/${filename}`;
+      console.log(`✅ Comprobante subido localmente: ${comprobantePath}`);
+    } else {
+      // Es Cloudinary URL
+      console.log(`✅ Comprobante subido a Cloudinary: ${comprobantePath}`);
+    }
 
     // Obtener información del usuario para la notificación
     const [[usuario]] = await db.query(

@@ -66,15 +66,33 @@ const uploadPacks = multer({
 // ============================================
 // PAGOS - Storage para comprobantes de pago
 // ============================================
-const storagePayments = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'electromarket/payments',
-    resource_type: 'auto',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-    quality: 'auto:eco'
-  }
-});
+const path = require('path');
+const fs = require('fs');
+
+// Crear fallback a diskStorage si Cloudinary no está configurado
+const storagePayments = (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET)
+  ? new CloudinaryStorage({
+      cloudinary: cloudinary,
+      params: {
+        folder: 'electromarket/payments',
+        resource_type: 'auto',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+        quality: 'auto:eco'
+      }
+    })
+  : multer.diskStorage({
+      destination: (req, file, cb) => {
+        const dir = path.join(__dirname, '../images/imagesPayments');
+        // Crear directorio si no existe
+        fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+      },
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        const ext = path.extname(file.originalname);
+        cb(null, 'payment-' + uniqueSuffix + ext);
+      }
+    });
 
 const uploadPayments = multer({
   storage: storagePayments,
