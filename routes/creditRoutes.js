@@ -3,7 +3,7 @@ const express = require("express");
 const router = express.Router();
 
 const creditController = require("../controllers/creditController");
-const uploadPayment = require("../middleware/uploadPayment");
+const { uploadPayments } = require("../middleware/uploadCloudinary");
 
 // (Opcional) usar el controller de packs como alias de solo lectura aquí
 const packsCtrl = require("../controllers/packsController");
@@ -18,7 +18,7 @@ const packsCtrl = require("../controllers/packsController");
  */
 router.post(
   "/comprar",
-  uploadPayment.single("comprobante_pago"),
+  uploadPayments.single("comprobante_pago"),
   creditController.comprarCreditos
 );
 

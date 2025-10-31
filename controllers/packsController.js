@@ -1,6 +1,4 @@
 // controllers/packsController.js
-const path = require('path');
-const fs = require('fs').promises;
 const db = require('../database');
 
 // Preferir acceso directo a DB pero mantener compatibilidad
@@ -40,10 +38,7 @@ const Packs = {
   }
 };
 
-const PUBLIC_SUBDIR = "/images/imagesPacks";
-const FS_DIR = path.join(__dirname, "..", PUBLIC_SUBDIR.replace(/^\//, ""));
-
-const fsPathFromUrl = (url) => path.join(FS_DIR, path.basename(url || ""));
+// Cloudinary maneja toda la gestión de imágenes, no hay archivos locales
 
 // GET /api/packs
 exports.getAllPacks = async (req, res) => {
@@ -81,12 +76,13 @@ exports.createPack = async (req, res) => {
 
     let qr_imagen_url = null;
 
-    // Con upload.fields(), los archivos están en req.files (objeto)
-    const uploadedFile = req.files?.qr?.[0] || req.files?.qr_imagen?.[0] || req.file;
+    // Con upload.single(), el archivo está en req.file (Cloudinary lo proporciona)
+    const uploadedFile = req.file;
 
     if (uploadedFile) {
-      // Usar siempre el sistema estandarizado /images/imagesPacks/
-      qr_imagen_url = `${PUBLIC_SUBDIR}/${uploadedFile.filename}`;
+      // Cloudinary proporciona la URL pública directamente en file.path
+      qr_imagen_url = uploadedFile.path;
+      console.log(`✅ QR subido a Cloudinary: ${qr_imagen_url}`);
     }
 
     if (!qr_imagen_url) {
@@ -132,21 +128,14 @@ exports.updatePack = async (req, res) => {
 
     let qr_imagen_url = existing.qr_imagen_url;
 
-    // Con upload.fields(), los archivos están en req.files (objeto)
-    const uploadedFile = req.files?.qr?.[0] || req.files?.qr_imagen?.[0] || req.file;
+    // Con upload.single(), el archivo está en req.file (Cloudinary lo proporciona)
+    const uploadedFile = req.file;
 
     if (uploadedFile) {
-      // Eliminar imagen anterior si existe
-      if (existing.qr_imagen_url) {
-        try {
-          await fs.unlink(fsPathFromUrl(existing.qr_imagen_url));
-        } catch (e) {
-          console.warn("No se pudo eliminar el QR anterior:", e.message);
-        }
-      }
-
-      // Construir nueva URL usando sistema estandarizado
-      qr_imagen_url = `${PUBLIC_SUBDIR}/${uploadedFile.filename}`;
+      // Cloudinary proporciona la URL pública directamente en file.path
+      // No necesitamos eliminar la anterior, Cloudinary lo maneja automáticamente
+      qr_imagen_url = uploadedFile.path;
+      console.log(`✅ QR actualizado en Cloudinary: ${qr_imagen_url}`);
     }
 
     const ok = await Packs.update(id, {

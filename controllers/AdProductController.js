@@ -1,10 +1,8 @@
 // controllers/AdProductController.js
-const fs = require('fs');
-const fsp = fs.promises;
-const path = require('path');
 const { z } = require('zod');
-const db = require('../database'); // Debes tener tu conexión
+const db = require('../database');
 const sellerModel = require('../models/AdProductModel');
+const { cloudinary } = require('../middleware/uploadCloudinary');
 
 const MIN_CREDITS = Number(process.env.MIN_CREDITS || 5);
 const createProductSchema = z.object({
@@ -18,11 +16,6 @@ const createProductSchema = z.object({
   especificaciones: z.union([z.string().transform(str => { try { return JSON.parse(str); } catch { return null; } }), z.record(z.any())]).nullable().optional(),
   orden: z.string().optional()
 });
-
-const IMAGES_DIR = path.join(__dirname, '..', 'images', 'imagesProducts');
-function publicUrlFor(filename) { return `/images/imagesProducts/${filename}`; }
-async function ensureImagesDir() { try { await fsp.mkdir(IMAGES_DIR, { recursive: true }); } catch {} }
-async function renameSafe(oldPath, newPath) { await ensureImagesDir(); await fsp.rename(oldPath, newPath); }
 
 async function createProduct(req, res) {
   try {
@@ -66,28 +59,24 @@ async function createProduct(req, res) {
         ]
       );
 
+      // ✅ Procesar imágenes desde Cloudinary
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const ext = path.extname(file.originalname || '.jpg').toLowerCase();
         const ordenVisual = i + 1;
 
-        // 1. Insertar imagen temporal (url_imagen = 'temp') y obtener su ID
+        // 1. Insertar imagen con URL de Cloudinary
         const imagenId = await sellerModel.insertarImagenTemporal(conn, productoId);
 
-        // 2. Construir nuevo nombre basado en el orden (NO en el imagenId)
-        const newFilename = `${productoId}_${ordenVisual}${ext}`;
-        const newPath = path.join(IMAGES_DIR, newFilename);
+        // 2. Usar la URL que Cloudinary proporciona en req.file.path
+        // Cloudinary devuelve automáticamente la URL pública en file.path
+        const cloudinaryUrl = file.path;
 
-        try {
-          await renameSafe(file.path, newPath);
-        } catch (err) {
-          throw new Error(`Error al mover imagen: ${err.message}`);
-        }
+        // 3. Actualizar la URL en la base de datos
+        await sellerModel.actualizarUrlImagen(conn, imagenId, cloudinaryUrl);
 
-        // 3. Actualizar la URL definitiva en la base de datos
-        const finalUrl = publicUrlFor(newFilename);
-        await sellerModel.actualizarUrlImagen(conn, imagenId, finalUrl);
+        console.log(`✅ Imagen ${ordenVisual} subida a Cloudinary: ${cloudinaryUrl}`);
       }
+
       await conn.commit();
       const [[producto]] = await conn.query(`SELECT * FROM productos WHERE id = ?`, [productoId]);
       const [imagenes] = await conn.query(`SELECT * FROM imagenes_productos WHERE producto_id = ?`, [productoId]);

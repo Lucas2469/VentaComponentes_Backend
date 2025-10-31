@@ -22,7 +22,9 @@ exports.comprarCreditos = async (req, res) => {
     const cant = Number(cantidad_creditos ?? pack.cantidad_creditos);
     const monto = Number(monto_pagado ?? pack.precio);
 
-    const comprobantePath = "/images/imagesPayments/" + req.file.filename;
+    // Cloudinary proporciona la URL pública directamente en file.path
+    const comprobantePath = req.file.path;
+    console.log(`✅ Comprobante subido a Cloudinary: ${comprobantePath}`);
 
     // Obtener información del usuario para la notificación
     const [[usuario]] = await db.query(
